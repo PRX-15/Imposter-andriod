@@ -38,6 +38,14 @@ jobs:
       - name: Generate Android platform files
         run: flutter create --platforms=android --project-name imposter_android --org com.prx15 .
 
+      - name: Use stable debug signing key
+        run: |
+          mkdir -p "$HOME/.android"
+          base64 --decode tooling/debug.keystore.b64 > "$HOME/.android/debug.keystore"
+
+      - name: Set increasing Android version
+        run: sed -i "s/^version:.*/version: 1.0.${GITHUB_RUN_NUMBER}+${GITHUB_RUN_NUMBER}/" pubspec.yaml
+
       - name: Install dependencies
         run: flutter pub get
 
