@@ -44,7 +44,8 @@ jobs:
           base64 --decode tooling/debug.keystore.b64 > "$HOME/.android/debug.keystore"
 
       - name: Set increasing Android version
-        run: sed -i "s/^version:.*/version: 1.0.${GITHUB_RUN_NUMBER}+${GITHUB_RUN_NUMBER}/" pubspec.yaml
+        run: |
+          sed -i "s/^version:.*/version: 1.0.${GITHUB_RUN_NUMBER}+${GITHUB_RUN_NUMBER}/" pubspec.yaml
 
       - name: Install dependencies
         run: flutter pub get
