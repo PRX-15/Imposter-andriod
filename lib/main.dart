@@ -591,8 +591,8 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(color: card, borderRadius: BorderRadius.circular(24), boxShadow: const [BoxShadow(color: Color(0x33AD40FF), blurRadius: 30, spreadRadius: 2)]),
-                  child: Center(
-                    child: Text('TAP HERE TO\nREVEAL YOUR ROLE', textAlign: TextAlign.center, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: .7)),
+                  child: const Center(
+                    child: Text('TAP HERE TO\nREVEAL YOUR ROLE', textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: .7)),
                   ),
                 ),
               ),
