@@ -195,6 +195,9 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   RoundRecord? _selectedHistory;
   bool _revealed = false;
   bool _busy = false;
+  DateTime? _lastBackAttempt;
+  bool _showingBackDialog = false;
+  int _revealAutoHideToken = 0;
   late final AnimationController _curtainController;
   late final Animation<Offset> _curtainSlide;
 
@@ -272,7 +275,65 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   void _go(Phase p) {
-    setState(() => _phase = p);
+    _revealAutoHideToken++;
+    _curtainController.stop();
+    setState(() {
+      _phase = p;
+      if (p != Phase.reveal) _revealed = false;
+    });
+  }
+
+  Future<void> _handleBack() async {
+    if (_showingBackDialog) return;
+    _showingBackDialog = true;
+    final now = DateTime.now();
+    final secondPress = _lastBackAttempt != null &&
+        now.difference(_lastBackAttempt!) <= const Duration(seconds: 2);
+    if (secondPress) {
+      _lastBackAttempt = null;
+      if (_phase == Phase.menu) {
+        if (mounted) Navigator.of(context).maybePop();
+      } else {
+        _go(Phase.menu);
+      }
+      _showingBackDialog = false;
+      return;
+    }
+
+    _lastBackAttempt = now;
+    final onMenu = _phase == Phase.menu;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: const Text('Exit IMPOSTER?'),
+        content: Text(onMenu
+            ? 'Press back again within 2 seconds to quit the game.'
+            : 'Press back again within 2 seconds to return to the main menu.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('CANCEL'),
+          ),
+        ],
+      ),
+    );
+    _showingBackDialog = false;
+  }
+
+  void _scheduleRevealAutoHide() {
+    final token = ++_revealAutoHideToken;
+    Future<void>.delayed(const Duration(seconds: 5), () {
+      if (!mounted ||
+          token != _revealAutoHideToken ||
+          _phase != Phase.reveal ||
+          !_revealed) {
+        return;
+      }
+      setState(() => _revealed = false);
+      _curtainController.reverse();
+    });
   }
 
   void _addPlayer() {
@@ -318,13 +379,19 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   void _revealRole() {
-    if (_revealed) return;
+    if (_revealed) {
+      // Any tap on the revealed card restarts the five-second privacy timer.
+      _scheduleRevealAutoHide();
+      return;
+    }
     setState(() => _revealed = true);
     _curtainController.forward();
+    _scheduleRevealAutoHide();
   }
 
   void _nextReveal() {
     if (!_revealed) return;
+    _revealAutoHideToken++;
     if (_revealIndex == _players.length - 1) {
       _go(Phase.discuss);
     } else {
@@ -438,7 +505,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         decoration: BoxDecoration(
           color: card.withValues(alpha: .94),
           border: Border.all(color: accent.withValues(alpha: .9)),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(28),
           boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 25, offset: Offset(0, 10))],
         ),
         child: child,
@@ -455,7 +522,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
               foregroundColor: Colors.white,
               disabledBackgroundColor: card2.withValues(alpha: .5),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(28),
                 side: BorderSide(color: main ? const Color(0xFFFF6390) : accent),
               ),
               minimumSize: Size.fromHeight(compact ? 44 : 52),
@@ -474,7 +541,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               color: accent.withValues(alpha: .10),
               border: Border.all(color: accent),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(30),
               boxShadow: [BoxShadow(color: accent.withValues(alpha: .12), blurRadius: 22)],
             ),
             child: Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 2)),
@@ -522,7 +589,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                         filled: true,
                         fillColor: card2,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
                       ),
                     )),
                     if (_players.length > 3) IconButton(onPressed: () => _removePlayer(i), icon: const Icon(Icons.remove_circle, color: danger)),
@@ -643,7 +710,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                 backgroundColor: _selectedVote == i ? primary : card,
                 foregroundColor: Colors.white,
                 side: BorderSide(color: _selectedVote == i ? const Color(0xFFFF6390) : accent),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
               ),
               child: Text(_players[i].toUpperCase(), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800)),
             ),
@@ -817,7 +884,12 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       case Phase.historyDetail:
         body = _historyDetail();
     }
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _handleBack();
+      },
+      child: Scaffold(
       body: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: RadialGradient(
@@ -827,6 +899,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           ),
         ),
         child: _page(body),
+      ),
       ),
     );
   }
