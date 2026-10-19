@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/services.dart';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -165,7 +166,43 @@ class ImposterApp extends StatelessWidget {
           fontFamily: 'Roboto',
           useMaterial3: true,
         ),
-        home: const GameHome(),
+        home: const LaunchSplash(),
+      );
+}
+
+class LaunchSplash extends StatefulWidget {
+  const LaunchSplash({super.key});
+
+  @override
+  State<LaunchSplash> createState() => _LaunchSplashState();
+}
+
+class _LaunchSplashState extends State<LaunchSplash> {
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.delayed(const Duration(milliseconds: 1800), () {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(builder: (_) => const GameHome()),
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: bg,
+        body: SizedBox.expand(
+          child: Image.asset(
+            'assets/icons/presplash.png',
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const Center(
+              child: Text('IMPOSTER',
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900)),
+            ),
+          ),
+        ),
       );
 }
 
@@ -283,43 +320,43 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     });
   }
 
-  Future<void> _handleBack() async {
-    if (_showingBackDialog) return;
-    _showingBackDialog = true;
+  void _handleBack() {
     final now = DateTime.now();
     final secondPress = _lastBackAttempt != null &&
         now.difference(_lastBackAttempt!) <= const Duration(seconds: 2);
     if (secondPress) {
       _lastBackAttempt = null;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       if (_phase == Phase.menu) {
-        if (mounted) Navigator.of(context).maybePop();
+        SystemNavigator.pop();
       } else {
         _go(Phase.menu);
       }
-      _showingBackDialog = false;
       return;
     }
 
     _lastBackAttempt = now;
     final onMenu = _phase == Phase.menu;
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        title: const Text('Exit IMPOSTER?'),
-        content: Text(onMenu
-            ? 'Press back again within 2 seconds to quit the game.'
-            : 'Press back again within 2 seconds to return to the main menu.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('CANCEL'),
-          ),
-        ],
-      ),
-    );
-    _showingBackDialog = false;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(onMenu
+              ? 'Press back again to quit IMPOSTER'
+              : 'Press back again to return to the main menu'),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: card2,
+        ),
+      );
+    Future<void>.delayed(const Duration(seconds: 2), () {
+      if (mounted &&
+          _lastBackAttempt == now &&
+          DateTime.now().difference(now) >= const Duration(seconds: 2)) {
+        _lastBackAttempt = null;
+      }
+    });
   }
 
   void _scheduleRevealAutoHide() {
