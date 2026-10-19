@@ -106,7 +106,6 @@ class RoundRecord {
   RoundRecord({
     required this.date,
     required this.word,
-    required this.category,
     required this.imposter,
     required this.players,
     required this.voteTotals,
@@ -722,7 +721,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     );
   }
 
-  Widget _history() => Column(
+  Widget _historyPage() => Column(
         key: const ValueKey('history'),
         children: [
           Row(children: [
@@ -814,7 +813,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       case Phase.results:
         body = _results();
       case Phase.history:
-        body = _history();
+        body = _historyPage();
       case Phase.historyDetail:
         body = _historyDetail();
     }
