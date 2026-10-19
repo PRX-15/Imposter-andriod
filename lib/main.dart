@@ -233,7 +233,6 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   bool _revealed = false;
   bool _busy = false;
   DateTime? _lastBackAttempt;
-  bool _showingBackDialog = false;
   int _revealAutoHideToken = 0;
   late final AnimationController _curtainController;
   late final Animation<Offset> _curtainSlide;
