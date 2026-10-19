@@ -346,7 +346,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
               : 'Press back again to return to the main menu'),
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
           backgroundColor: card2,
         ),
       );
@@ -594,7 +594,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         child: Container(
           margin: const EdgeInsets.only(bottom: 14),
           padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(color: const Color(0xCC170925), border: Border.all(color: muted.withValues(alpha: .6)), borderRadius: BorderRadius.circular(18)),
+          decoration: BoxDecoration(color: const Color(0xCC170925), border: Border.all(color: muted.withValues(alpha: .6)), borderRadius: BorderRadius.circular(28)),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             TextButton(onPressed: () => _go(Phase.menu), child: const Text('GAME')),
             TextButton(onPressed: () => _go(Phase.history), child: const Text('HISTORY')),
@@ -655,7 +655,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           child: Stack(children: [
             Container(
               width: double.infinity,
-              decoration: BoxDecoration(color: card, border: Border.all(color: accent), borderRadius: BorderRadius.circular(24)),
+              decoration: BoxDecoration(color: card, border: Border.all(color: accent), borderRadius: BorderRadius.circular(28)),
               padding: const EdgeInsets.all(24),
               child: Center(
                 child: AnimatedSwitcher(
@@ -694,7 +694,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                 onTap: _revealRole,
                 child: Container(
                   width: double.infinity,
-                  decoration: BoxDecoration(color: card, borderRadius: BorderRadius.circular(24), boxShadow: const [BoxShadow(color: Color(0x33AD40FF), blurRadius: 30, spreadRadius: 2)]),
+                  decoration: BoxDecoration(color: card, borderRadius: BorderRadius.circular(28), boxShadow: const [BoxShadow(color: Color(0x33AD40FF), blurRadius: 30, spreadRadius: 2)]),
                   child: const Center(
                     child: Text('TAP HERE TO\nREVEAL YOUR ROLE', textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: .7)),
                   ),
