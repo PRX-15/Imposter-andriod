@@ -34,6 +34,9 @@ void main() {
     await tester.tap(find.text('CONTINUE'));
     await tester.pumpAndSettle();
 
+    // Let the cancelled privacy timer fire so the test ends without pending timers.
+    await tester.pump(const Duration(seconds: 5));
+
     expect(find.text('Pass to PLAYER 2'), findsOneWidget);
     expect(find.text('PASS TO PLAYER 2'), findsOneWidget);
 
