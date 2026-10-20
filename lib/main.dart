@@ -470,7 +470,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     });
   }
 
-  void _passToNextVoter() {
+  void _advanceToNextVoter() {
     if (_phase != Phase.passVote || _voterIndex >= _players.length - 1) return;
     setState(() {
       _voterIndex++;
@@ -885,7 +885,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           ),
         ),
         const SizedBox(height: 14),
-        _button('PASS TO ${nextVoter.toUpperCase()}', _passToNextVoter, main: true),
+        _button('PASS TO ${nextVoter.toUpperCase()}', _advanceToNextVoter, main: true),
       ],
     );
   }
