@@ -712,7 +712,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           ]),
         ),
         const SizedBox(height: 10),
-        _button(_revealIndex == _players.length - 1 ? 'FINISH REVEAL' : 'PASS THE PHONE', _revealed ? _nextReveal : null, main: true),
+        _button(_revealIndex == _players.length - 1 ? 'FINISH REVEAL' : 'CONTINUE', _revealed ? _nextReveal : null, main: true),
         const Padding(padding: EdgeInsets.only(top: 10), child: Text('Keep the screen private, then pass the phone.', textAlign: TextAlign.center, style: TextStyle(color: muted))),
       ],
     );
