@@ -79,10 +79,18 @@ jobs:
             echo "Missing apksigner or ARM64 APK."
             exit 1
           fi
-          expected="$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | awk -F': ' '/SHA256:|Certificate fingerprint/ {gsub(":", "", $NF); print tolower($NF); exit}')"
-          actual="$("$apksigner" verify --print-certs "$apk" 2>&1 | awk -F': ' '/Signer #1 certificate SHA-256 digest:/ {gsub(":", "", $NF); print tolower($NF); exit}')"
-          if [[ -z "$expected" || -z "$actual" ]]; then
-            echo "Could not read signing certificate fingerprints."
+          keytool_output="$(keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey)"
+          expected="$(printf '%s\n' "$keytool_output" | sed -nE 's/.*Certificate fingerprint \(SHA-256\): ([[:xdigit:]:]+).*/\1/p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          apksigner_output="$("$apksigner" verify --print-certs "$apk" 2>&1)"
+          actual="$(printf '%s\n' "$apksigner_output" | sed -nE 's/.*SHA-256 digest:[[:space:]]*([[:xdigit:]:]+).*/\1/p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          if [[ -z "$expected" ]]; then
+            echo "Could not read the stable debug key fingerprint. keytool output:"
+            printf '%s\n' "$keytool_output"
+            exit 1
+          fi
+          if [[ -z "$actual" ]]; then
+            echo "Could not read the APK signing fingerprint. apksigner output:"
+            printf '%s\n' "$apksigner_output"
             exit 1
           fi
           if [[ "$expected" != "$actual" ]]; then
