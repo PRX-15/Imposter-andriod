@@ -206,7 +206,7 @@ class _LaunchSplashState extends State<LaunchSplash> {
       );
 }
 
-enum Phase { menu, reveal, passToNext, discuss, voting, summary, results, history, historyDetail }
+enum Phase { menu, reveal, passToNext, discuss, voting, passVote, summary, results, history, historyDetail }
 
 class GameHome extends StatefulWidget {
   const GameHome({super.key});
@@ -465,8 +465,17 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       if (_voterIndex == _players.length - 1) {
         _phase = Phase.summary;
       } else {
-        _voterIndex++;
+        _phase = Phase.passVote;
       }
+    });
+  }
+
+  void _passToNextVoter() {
+    if (_phase != Phase.passVote || _voterIndex >= _players.length - 1) return;
+    setState(() {
+      _voterIndex++;
+      _selectedVote = null;
+      _phase = Phase.voting;
     });
   }
 
@@ -807,8 +816,76 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
             ),
           ),
         ),
-        _button(_voterIndex == _players.length - 1 ? 'LOCK VOTE & SHOW SUMMARY' : 'CONFIRM & PASS PHONE', _confirmVote, main: true),
+        _button(_voterIndex == _players.length - 1 ? 'LOCK VOTE & SHOW SUMMARY' : 'CONFIRM VOTE', _confirmVote, main: true),
         const Padding(padding: EdgeInsets.only(top: 8), child: Text('Your vote stays private between turns.', style: TextStyle(color: muted, fontSize: 13))),
+      ],
+    );
+  }
+
+  Widget _passToNextVoter() {
+    final nextVoter = _players[_voterIndex + 1];
+    final completedVotes = _votes.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    return Column(
+      key: const ValueKey('passVote'),
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.how_to_vote_outlined, color: accent, size: 64),
+        const SizedBox(height: 20),
+        const Text(
+          'PASS THE PHONE',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900, letterSpacing: 1.2),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Pass to ${nextVoter.toUpperCase()}',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: primary),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Previous votes',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: muted, fontSize: 16),
+        ),
+        const SizedBox(height: 14),
+        Expanded(
+          child: _panel(
+            ListView.separated(
+              itemCount: completedVotes.length,
+              separatorBuilder: (_, __) => const Divider(color: accent),
+              itemBuilder: (context, i) {
+                final vote = completedVotes[i];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _players[vote.key],
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_rounded, color: muted, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _players[vote.value],
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(color: primary, fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        _button('PASS TO ${nextVoter.toUpperCase()}', _passToNextVoter, main: true),
       ],
     );
   }
@@ -968,6 +1045,8 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         body = _discuss();
       case Phase.voting:
         body = _voting();
+      case Phase.passVote:
+        body = _passToNextVoter();
       case Phase.summary:
         body = _summary();
       case Phase.results:
