@@ -54,7 +54,7 @@ void main() {
 
     // Finish the three-player role reveal.
     for (var i = 0; i < 3; i++) {
-      await tester.tap(find.text('TAP HERE TO\\nREVEAL YOUR ROLE'));
+      await tester.tap(find.text('TAP HERE TO\nREVEAL YOUR ROLE'));
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
       await tester.tap(find.text(i == 2 ? 'FINISH REVEAL' : 'CONTINUE'));
