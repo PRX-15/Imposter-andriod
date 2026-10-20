@@ -31,13 +31,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'PASS THE PHONE'));
+    await tester.tap(find.text('PASS THE PHONE'));
     await tester.pumpAndSettle();
 
     expect(find.text('Pass to PLAYER 2'), findsOneWidget);
     expect(find.text('PASS TO PLAYER 2'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'PASS TO PLAYER 2'));
+    await tester.tap(find.text('PASS TO PLAYER 2'));
     await tester.pumpAndSettle();
 
     expect(find.text('PLAYER 2'), findsOneWidget);
