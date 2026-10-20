@@ -206,7 +206,7 @@ class _LaunchSplashState extends State<LaunchSplash> {
       );
 }
 
-enum Phase { menu, reveal, discuss, voting, summary, results, history, historyDetail }
+enum Phase { menu, reveal, passToNext, discuss, voting, summary, results, history, historyDetail }
 
 class GameHome extends StatefulWidget {
   const GameHome({super.key});
@@ -428,15 +428,24 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   void _nextReveal() {
     if (!_revealed) return;
     _revealAutoHideToken++;
-    if (_revealIndex == _players.length - 1) {
-      _go(Phase.discuss);
-    } else {
-      setState(() {
-        _revealIndex++;
-        _revealed = false;
-      });
-      _curtainController.reset();
-    }
+    _curtainController.stop();
+    setState(() {
+      _revealed = false;
+      _phase = _revealIndex == _players.length - 1
+          ? Phase.discuss
+          : Phase.passToNext;
+    });
+    _curtainController.reset();
+  }
+
+  void _passToNextPlayer() {
+    if (_phase != Phase.passToNext || _revealIndex >= _players.length - 1) return;
+    setState(() {
+      _revealIndex++;
+      _revealed = false;
+      _phase = Phase.reveal;
+    });
+    _curtainController.reset();
   }
 
   void _beginVoting() {
@@ -703,8 +712,54 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           ]),
         ),
         const SizedBox(height: 10),
-        _button(_revealIndex == _players.length - 1 ? 'FINISH REVEAL' : 'PASS THE PHONE', _revealed ? _nextReveal : null, main: true),
+        _button(_revealIndex == _players.length - 1 ? 'FINISH REVEAL' : 'CONTINUE', _revealed ? _nextReveal : null, main: true),
         const Padding(padding: EdgeInsets.only(top: 10), child: Text('Keep the screen private, then pass the phone.', textAlign: TextAlign.center, style: TextStyle(color: muted))),
+      ],
+    );
+  }
+
+  Widget _passToNext() {
+    final nextPlayer = _players[_revealIndex + 1];
+    return Column(
+      key: const ValueKey('passToNext'),
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.swap_horiz_rounded, color: accent, size: 64),
+        const SizedBox(height: 20),
+        const Text(
+          'PASS THE PHONE',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900, letterSpacing: 1.2),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Pass to ${nextPlayer.toUpperCase()}',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: primary),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'Make sure the next player is ready before continuing.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: muted, fontSize: 16, height: 1.4),
+        ),
+        const SizedBox(height: 24),
+        _panel(const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.visibility_off_outlined, color: accent),
+            SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                'Your role is hidden. Keep it secret.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: muted, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        )),
+        const SizedBox(height: 14),
+        _button('PASS TO ${nextPlayer.toUpperCase()}', _passToNextPlayer, main: true),
       ],
     );
   }
@@ -907,6 +962,8 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         body = _menu();
       case Phase.reveal:
         body = _reveal();
+      case Phase.passToNext:
+        body = _passToNext();
       case Phase.discuss:
         body = _discuss();
       case Phase.voting:
