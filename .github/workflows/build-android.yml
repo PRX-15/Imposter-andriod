@@ -44,6 +44,27 @@ jobs:
           base64 --decode tooling/debug.keystore.b64 > "$HOME/.android/debug.keystore"
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey
 
+      - name: Configure stable debug signing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("android/app/build.gradle.kts")
+          text = path.read_text()
+          marker = "android {\n"
+          if marker not in text:
+              raise SystemExit("Could not find the Android Gradle configuration block.")
+
+          signing = """android {
+              signingConfigs {
+                  getByName("debug") {
+                      storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
+                  }
+              }
+          """
+          path.write_text(text.replace(marker, signing, 1))
+          PY
+
       - name: Set increasing Android version
         run: |
           sed -i "s/^version:.*/version: 1.0.${GITHUB_RUN_NUMBER}+${GITHUB_RUN_NUMBER}/" pubspec.yaml
