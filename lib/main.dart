@@ -470,15 +470,6 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     });
   }
 
-  void _passToNextVoter() {
-    if (_phase != Phase.passVote || _voterIndex >= _players.length - 1) return;
-    setState(() {
-      _voterIndex++;
-      _selectedVote = null;
-      _phase = Phase.voting;
-    });
-  }
-
   List<int> _voteTotals() {
     final totals = List<int>.filled(_players.length, 0);
     for (final target in _votes.values) {
