@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/services.dart';
@@ -234,6 +235,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   bool _busy = false;
   DateTime? _lastBackAttempt;
   int _revealAutoHideToken = 0;
+  Timer? _revealAutoHideTimer;
   late final AnimationController _curtainController;
   late final Animation<Offset> _curtainSlide;
 
@@ -254,6 +256,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _revealAutoHideTimer?.cancel();
     for (final c in _controllers) {
       c.dispose();
     }
@@ -312,6 +315,8 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
 
   void _go(Phase p) {
     _revealAutoHideToken++;
+    _revealAutoHideTimer?.cancel();
+    _revealAutoHideTimer = null;
     _curtainController.stop();
     setState(() {
       _phase = p;
@@ -359,8 +364,10 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   void _scheduleRevealAutoHide() {
+    _revealAutoHideTimer?.cancel();
     final token = ++_revealAutoHideToken;
-    Future<void>.delayed(const Duration(seconds: 5), () {
+    _revealAutoHideTimer = Timer(const Duration(seconds: 5), () {
+      _revealAutoHideTimer = null;
       if (!mounted ||
           token != _revealAutoHideToken ||
           _phase != Phase.reveal ||
@@ -428,6 +435,8 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   void _nextReveal() {
     if (!_revealed) return;
     _revealAutoHideToken++;
+    _revealAutoHideTimer?.cancel();
+    _revealAutoHideTimer = null;
     _curtainController.stop();
     setState(() {
       _revealed = false;
