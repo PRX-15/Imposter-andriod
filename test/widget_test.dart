@@ -31,7 +31,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('PASS THE PHONE'));
+    await tester.tap(find.text('CONTINUE'));
     await tester.pumpAndSettle();
 
     expect(find.text('Pass to PLAYER 2'), findsOneWidget);
