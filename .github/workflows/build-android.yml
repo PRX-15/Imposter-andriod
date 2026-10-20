@@ -79,8 +79,8 @@ jobs:
             echo "Missing apksigner or ARM64 APK."
             exit 1
           fi
-          expected="$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | awk -F'SHA256: ' '/SHA256:/{gsub(":", "", $2); print tolower($2); exit}')"
-          actual="$("$apksigner" verify --print-certs "$apk" | awk -F'SHA-256 digest: ' '/Signer #1 certificate SHA-256 digest:/{gsub(":", "", $2); print tolower($2); exit}')"
+          expected="$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | awk -F': ' '/Certificate fingerprint/ && /SHA-256/ {gsub(":", "", $NF); print tolower($NF); exit}')"
+          actual="$("$apksigner" verify --print-certs "$apk" | awk -F': ' '/Signer #1 certificate SHA-256 digest:/ {gsub(":", "", $NF); print tolower($NF); exit}')"
           if [[ -z "$expected" || -z "$actual" ]]; then
             echo "Could not read signing certificate fingerprints."
             exit 1
