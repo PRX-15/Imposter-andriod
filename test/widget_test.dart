@@ -18,4 +18,29 @@ void main() {
     expect(find.text('Player 2'), findsOneWidget);
     expect(find.text('Player 3'), findsOneWidget);
   });
+
+  testWidgets('role reveal asks to pass to the next player', (tester) async {
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('PLAY'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('TAP HERE TO\nREVEAL YOUR ROLE'));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'PASS THE PHONE'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pass to PLAYER 2'), findsOneWidget);
+    expect(find.text('PASS TO PLAYER 2'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'PASS TO PLAYER 2'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PLAYER 2'), findsOneWidget);
+    expect(find.text('TAP HERE TO\nREVEAL YOUR ROLE'), findsOneWidget);
+  });
 }
