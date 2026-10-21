@@ -822,9 +822,10 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         ),
         SizedBox(height: 18),
         Expanded(
-          child: Stack(
-            clipBehavior: Clip.hardEdge,
-            children: [
+          child: ClipRect(
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -973,7 +974,8 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
         SizedBox(height: 10),
