@@ -266,7 +266,7 @@ class _LaunchSplashState extends State<LaunchSplash> {
       );
 }
 
-enum Phase { menu, reveal, passToNext, discuss, voting, summary, results, history, historyDetail }
+enum Phase { menu, reveal, passToNext, discuss, voting, votePass, summary, results, history, historyDetail }
 
 class GameHome extends StatefulWidget {
   const GameHome({super.key});
@@ -537,11 +537,18 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     setState(() {
       _votes[_voterIndex] = _selectedVote!;
       _selectedVote = null;
-      if (_voterIndex == _players.length - 1) {
-        _phase = Phase.summary;
-      } else {
-        _voterIndex++;
-      }
+      _phase = _voterIndex == _players.length - 1
+          ? Phase.summary
+          : Phase.votePass;
+    });
+  }
+
+  void _passAfterVote() {
+    if (_phase != Phase.votePass || _voterIndex >= _players.length - 1) return;
+    setState(() {
+      _voterIndex++;
+      _selectedVote = null;
+      _phase = Phase.voting;
     });
   }
 
@@ -1144,6 +1151,99 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     );
   }
 
+  Widget _votePass() {
+    final recordedVotes = _votes.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final nextVoterIndex = _voterIndex + 1;
+    final palette = PaletteScope.of(context).palette;
+
+    return Column(
+      key: const ValueKey('votePass'),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('VOTING', style: TextStyle(color: palette.muted, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                  SizedBox(height: 4),
+                  Text('Vote submitted!', style: TextStyle(fontSize: 27, fontWeight: FontWeight.w900)),
+                ],
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(color: palette.card2, borderRadius: BorderRadius.circular(30)),
+              child: Text('${_votes.length} ${_votes.length == 1 ? 'vote' : 'votes'}', style: TextStyle(fontWeight: FontWeight.w800)),
+            ),
+          ],
+        ),
+        SizedBox(height: 10),
+        Text("${_players[_voterIndex]}'s vote has been recorded.", textAlign: TextAlign.center, style: TextStyle(color: palette.muted, fontSize: 16)),
+        SizedBox(height: 18),
+        Expanded(
+          child: SingleChildScrollView(
+            child: _panel(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('VOTES SO FAR', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                      Icon(Icons.how_to_vote_rounded, color: palette.accent),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  ...recordedVotes.map((entry) => Padding(
+                    padding: EdgeInsets.symmetric(vertical: 7),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(color: palette.card2, borderRadius: BorderRadius.circular(14)),
+                          child: Text('${entry.key + 1}', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_players[entry.key], style: TextStyle(fontWeight: FontWeight.w800)),
+                              Text('Voted for ${_players[entry.value]}', style: TextStyle(color: palette.muted, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.check_circle_outline_rounded, color: good, size: 21),
+                      ],
+                    ),
+                  )),
+                ],
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: 12),
+        _panel(
+          Column(
+            children: [
+              Icon(Icons.phone_android_rounded, size: 32, color: palette.accent),
+              SizedBox(height: 8),
+              Text('PASS TO THE NEXT PLAYER', textAlign: TextAlign.center, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
+              SizedBox(height: 8),
+              Text('Hand the phone to ${_players[nextVoterIndex]}. Make sure they are ready before continuing.', textAlign: TextAlign.center, style: TextStyle(color: palette.muted, fontSize: 15, height: 1.4)),
+              _button('PASS TO ${_players[nextVoterIndex].toUpperCase()}', _passAfterVote, main: true, compact: true),
+            ],
+          ),
+          padding: EdgeInsets.all(16),
+        ),
+      ],
+    );
+  }
+
   Widget _summary() {
     final totals = _voteTotals();
     final leaders = _leaders(totals);
@@ -1303,6 +1403,8 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         body = SingleChildScrollView(child: _discuss());
       case Phase.voting:
         body = _voting();
+      case Phase.votePass:
+        body = _votePass();
       case Phase.summary:
         body = _summary();
       case Phase.results:
