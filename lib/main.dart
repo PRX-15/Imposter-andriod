@@ -866,6 +866,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   Widget _passToNext() {
     final nextPlayer = _players[_revealIndex + 1];
     return Column(
+      mainAxisSize: MainAxisSize.min,
       key: ValueKey('passToNext'),
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -910,6 +911,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   Widget _discuss() => Column(
+        mainAxisSize: MainAxisSize.min,
         key: ValueKey('discuss'),
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -1120,6 +1122,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   Widget _historyDetail() {
     final r = _selectedHistory!;
     return Column(
+      mainAxisSize: MainAxisSize.min,
       key: ValueKey('historyDetail'),
       children: [
         Text('ROUND HISTORY', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
@@ -1138,7 +1141,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
             Text('${r.voteTotals[i]} votes · ${r.points[i] > 0 ? '+' : ''}${r.points[i]} pts · total ${r.scores[i]}'),
           ])),
         ])),
-        Spacer(),
+        SizedBox(height: 14),
         _button('BACK TO HISTORY', () => _go(Phase.history)),
         _button('BACK TO GAME', () => _go(Phase.menu), main: true),
       ],
@@ -1160,9 +1163,9 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       case Phase.reveal:
         body = _reveal();
       case Phase.passToNext:
-        body = _passToNext();
+        body = SingleChildScrollView(child: _passToNext());
       case Phase.discuss:
-        body = _discuss();
+        body = SingleChildScrollView(child: _discuss());
       case Phase.voting:
         body = _voting();
       case Phase.summary:
@@ -1172,7 +1175,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       case Phase.history:
         body = _historyPage();
       case Phase.historyDetail:
-        body = _historyDetail();
+        body = SingleChildScrollView(child: _historyDetail());
     }
     return PopScope(
       canPop: false,
