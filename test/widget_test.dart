@@ -15,10 +15,15 @@ void main() {
     await tester.pumpWidget(const ImposterApp());
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
-    expect(find.text('Player 1 (optional)'), findsOneWidget);
+    expect(find.text('Enter player 1 name'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('player-0')), 'Alice');
+    await tester.enterText(find.byKey(const ValueKey('player-1')), '');
+    await tester.enterText(find.byKey(const ValueKey('player-2')), 'Charlie');
     await tester.tap(find.text('PLAY'));
     await tester.pumpAndSettle();
-    expect(find.text('PLAYER 1'), findsOneWidget);
+    expect(find.text('ALICE'), findsOneWidget);
+    expect(find.text('PLAYER 2'), findsNothing);
+    expect(find.text('Player 2'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
   });
