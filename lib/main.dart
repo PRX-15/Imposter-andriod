@@ -917,33 +917,82 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     return Column(
       key: ValueKey('voting'),
       children: [
-        Text('${voter.toUpperCase()} — VOTE', textAlign: TextAlign.center, style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+        Text(
+          '${voter.toUpperCase()} — VOTE',
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900),
+        ),
         SizedBox(height: 5),
-        Text('Who do you think is the Imposter?', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
-        SizedBox(height: 14),
+        Text(
+          'Who do you think is the Imposter?',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: PaletteScope.of(context).palette.muted),
+        ),
+        SizedBox(height: 10),
         Expanded(
-          child: GridView.builder(
-            itemCount: _players.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: MediaQuery.sizeOf(context).width < 400 ? 1 : 2,
-              mainAxisExtent: 68,
-              crossAxisSpacing: 9,
-              mainAxisSpacing: 9,
-            ),
-            itemBuilder: (context, i) => OutlinedButton(
-              onPressed: () => setState(() => _selectedVote = i),
-              style: OutlinedButton.styleFrom(
-                backgroundColor: _selectedVote == i ? PaletteScope.of(context).palette.primary : PaletteScope.of(context).palette.card,
-                foregroundColor: Colors.white,
-                side: BorderSide(color: _selectedVote == i ? Color(0xFFFF6390) : PaletteScope.of(context).palette.accent),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-              ),
-              child: Text(_players[i].toUpperCase(), textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800)),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 400;
+              final compact = constraints.maxHeight < 360;
+              return GridView.builder(
+                padding: EdgeInsets.only(bottom: 6),
+                itemCount: _players.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: narrow ? 1 : 2,
+                  mainAxisExtent: compact ? 52 : 64,
+                  crossAxisSpacing: 9,
+                  mainAxisSpacing: 9,
+                ),
+                itemBuilder: (context, i) => OutlinedButton(
+                  onPressed: () => setState(() => _selectedVote = i),
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    backgroundColor: _selectedVote == i
+                        ? PaletteScope.of(context).palette.primary
+                        : PaletteScope.of(context).palette.card,
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: _selectedVote == i
+                          ? Color(0xFFFF6390)
+                          : PaletteScope.of(context).palette.accent,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                  ),
+                  child: Text(
+                    _players[i].toUpperCase(),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        _button(
+          _voterIndex == _players.length - 1
+              ? 'LOCK VOTE & SHOW SUMMARY'
+              : 'CONFIRM & PASS PHONE',
+          _confirmVote,
+          main: true,
+          compact: true,
+        ),
+        Padding(
+          padding: EdgeInsets.only(top: 5),
+          child: Text(
+            'Your vote stays private between turns.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: PaletteScope.of(context).palette.muted,
+              fontSize: 12,
             ),
           ),
         ),
-        _button(_voterIndex == _players.length - 1 ? 'LOCK VOTE & SHOW SUMMARY' : 'CONFIRM & PASS PHONE', _confirmVote, main: true),
-        Padding(padding: EdgeInsets.only(top: 8), child: Text('Your vote stays private between turns.', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 13))),
       ],
     );
   }
