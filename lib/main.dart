@@ -36,7 +36,7 @@ const List<GamePalette> gamePalettes = [
   GamePalette(name: 'Emerald', background: Color(0xFF06130D), card: Color(0xFF132C20), card2: Color(0xFF1D4430), accent: Color(0xFF57E39A), primary: Color(0xFF19B96C), muted: Color(0xFFB0E5C7)),
   GamePalette(name: 'Sunset', background: Color(0xFF1B0B08), card: Color(0xFF38201A), card2: Color(0xFF542D22), accent: Color(0xFFFFB15C), primary: Color(0xFFFF5C49), muted: Color(0xFFFFD2B7)),
   GamePalette(name: 'Rose', background: Color(0xFF190710), card: Color(0xFF351324), card2: Color(0xFF501A34), accent: Color(0xFFFF75B5), primary: Color(0xFFE92F78), muted: Color(0xFFF1B8D4)),
-  GamePalette(name: 'Monochrome', background: Color(0xFF08090B), card: Color(0xFF1D2025), card2: Color(0xFF30343B), accent: Color(0xFFCED4DE), primary: Color(0xFF777F8C), muted: Color(0xFFD0D4DC)),
+  GamePalette(name: 'Rainbow Party', background: Color(0xFF17072B), card: Color(0xFF32104D), card2: Color(0xFF4A176B), accent: Color(0xFFFFE45E), primary: Color(0xFFFF4F9A), muted: Color(0xFFE9C9FF)),
 ];
 
 const Color good = Color(0xFF59D968);
@@ -800,12 +800,15 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     return Column(
       key: ValueKey('reveal'),
       children: [
-        SizedBox(height: 6),
-        Text(player.toUpperCase(), textAlign: TextAlign.center, style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900)),
-        Text("It's your turn.", style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 17)),
-        SizedBox(height: 18),
         Expanded(
-          child: Stack(children: [
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              Column(
+                children: [
+                  SizedBox(height: 72),
+                  Expanded(
+                    child: Stack(children: [
             Container(
               width: double.infinity,
               decoration: BoxDecoration(color: PaletteScope.of(context).palette.card, border: Border.all(color: PaletteScope.of(context).palette.accent), borderRadius: BorderRadius.circular(28)),
@@ -854,7 +857,26 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                 ),
               ),
             ),
-          ]),
+                    ]),
+                  ),
+                ],
+              ),
+              Positioned(
+                top: 6,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(player.toUpperCase(), textAlign: TextAlign.center, style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900)),
+                      Text("It's your turn.", style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 17)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         SizedBox(height: 10),
         _button(_revealIndex == _players.length - 1 ? 'FINISH REVEAL' : 'CONTINUE', _revealed ? _nextReveal : null, main: true),
