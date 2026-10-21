@@ -7,6 +7,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(const ImposterApp());
 
+class GamePalette {
+  const GamePalette({required this.name, required this.background, required this.card, required this.card2, required this.accent, required this.primary, required this.muted});
+  final String name;
+  final Color background, card, card2, accent, primary, muted;
+}
+
+const List<GamePalette> gamePalettes = [
+  GamePalette(name: 'Violet Pop', background: Color(0xFF090413), card: Color(0xFF211039), card2: Color(0xFF331452), accent: Color(0xFFAD40FF), primary: Color(0xFFFF1F61), muted: Color(0xFFB89ED9)),
+  GamePalette(name: 'Ocean', background: Color(0xFF041116), card: Color(0xFF102C36), card2: Color(0xFF174453), accent: Color(0xFF35D4E8), primary: Color(0xFF00A6C7), muted: Color(0xFFA7DCE5)),
+  GamePalette(name: 'Emerald', background: Color(0xFF06130D), card: Color(0xFF132C20), card2: Color(0xFF1D4430), accent: Color(0xFF57E39A), primary: Color(0xFF19B96C), muted: Color(0xFFB0E5C7)),
+  GamePalette(name: 'Sunset', background: Color(0xFF1B0B08), card: Color(0xFF38201A), card2: Color(0xFF542D22), accent: Color(0xFFFFB15C), primary: Color(0xFFFF5C49), muted: Color(0xFFFFD2B7)),
+  GamePalette(name: 'Rose', background: Color(0xFF190710), card: Color(0xFF351324), card2: Color(0xFF501A34), accent: Color(0xFFFF75B5), primary: Color(0xFFE92F78), muted: Color(0xFFF1B8D4)),
+  GamePalette(name: 'Monochrome', background: Color(0xFF08090B), card: Color(0xFF1D2025), card2: Color(0xFF30343B), accent: Color(0xFFCED4DE), primary: Color(0xFF777F8C), muted: Color(0xFFD0D4DC)),
+];
+
 const Color bg = Color(0xFF090413);
 const Color card = Color(0xFF211039);
 const Color card2 = Color(0xFF331452);
@@ -148,26 +163,55 @@ class RoundRecord {
       );
 }
 
-class ImposterApp extends StatelessWidget {
+class ImposterApp extends StatefulWidget {
   const ImposterApp({super.key});
-
   @override
-  Widget build(BuildContext context) => MaterialApp(
-        title: 'IMPOSTER',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          brightness: Brightness.dark,
-          scaffoldBackgroundColor: bg,
-          colorScheme: const ColorScheme.dark(
-            primary: primary,
-            secondary: accent,
-            surface: card,
-          ),
-          fontFamily: 'Roboto',
-          useMaterial3: true,
-        ),
-        home: const LaunchSplash(),
-      );
+  State<ImposterApp> createState() => _ImposterAppState();
+}
+
+class _ImposterAppState extends State<ImposterApp> {
+  int _paletteIndex = 0;
+  void _selectPalette(int index) {
+    if (index >= 0 && index < gamePalettes.length && index != _paletteIndex) {
+      setState(() => _paletteIndex = index);
+    }
+  }
+  @override
+  Widget build(BuildContext context) {
+    final palette = gamePalettes[_paletteIndex];
+    final theme = ThemeData(
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: palette.background,
+      colorScheme: ColorScheme.dark(primary: palette.primary, secondary: palette.accent, surface: palette.card),
+      fontFamily: 'Roboto',
+      useMaterial3: true,
+    );
+    return AnimatedTheme(
+      data: theme,
+      duration: const Duration(milliseconds: 360),
+      curve: Curves.easeInOutCubic,
+      child: PaletteScope(
+        palette: palette,
+        selectedIndex: _paletteIndex,
+        onSelect: _selectPalette,
+        child: MaterialApp(title: 'IMPOSTER', debugShowCheckedModeBanner: false, theme: theme, home: const LaunchSplash()),
+      ),
+    );
+  }
+}
+
+class PaletteScope extends InheritedWidget {
+  const PaletteScope({super.key, required this.palette, required this.selectedIndex, required this.onSelect, required super.child});
+  final GamePalette palette;
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
+  static PaletteScope of(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<PaletteScope>();
+    assert(scope != null, 'PaletteScope not found');
+    return scope!;
+  }
+  @override
+  bool updateShouldNotify(PaletteScope oldWidget) => palette != oldWidget.palette || selectedIndex != oldWidget.selectedIndex;
 }
 
 class LaunchSplash extends StatefulWidget {
@@ -192,7 +236,7 @@ class _LaunchSplashState extends State<LaunchSplash> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: bg,
+        backgroundColor: PaletteScope.of(context).palette.background,
         body: SizedBox.expand(
           child: Image.asset(
             'assets/icons/presplash.png',
@@ -218,7 +262,7 @@ class GameHome extends StatefulWidget {
 class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   final Random _random = Random();
   final List<TextEditingController> _controllers = [];
-  final List<String> _players = ['Player 1', 'Player 2', 'Player 3'];
+  final List<String> _players = ['', '', ''];
   final Map<int, int> _votes = {};
   final Map<String, int> _scores = {};
   final List<RoundRecord> _history = [];
@@ -243,11 +287,11 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     _syncControllers();
     _curtainController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 460),
+      duration: Duration(milliseconds: 460),
     );
     _curtainSlide = Tween<Offset>(
       begin: Offset.zero,
-      end: const Offset(0, -1.05),
+      end: Offset(0, -1.05),
     ).animate(CurvedAnimation(parent: _curtainController, curve: Curves.easeInOutCubic));
     _loadHistory();
   }
@@ -322,7 +366,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   void _handleBack() {
     final now = DateTime.now();
     final secondPress = _lastBackAttempt != null &&
-        now.difference(_lastBackAttempt!) <= const Duration(seconds: 2);
+        now.difference(_lastBackAttempt!) <= Duration(seconds: 2);
     if (secondPress) {
       _lastBackAttempt = null;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -343,16 +387,19 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           content: Text(onMenu
               ? 'Press back again to quit IMPOSTER'
               : 'Press back again to return to the main menu'),
-          duration: const Duration(seconds: 2),
+          duration: Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-          backgroundColor: card2,
+          margin: EdgeInsets.fromLTRB(18, 0, 18, 54),
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+          backgroundColor: Colors.white,
+          contentTextStyle: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
         ),
       );
-    Future<void>.delayed(const Duration(seconds: 2), () {
+    Future<void>.delayed(Duration(seconds: 2), () {
       if (mounted &&
           _lastBackAttempt == now &&
-          DateTime.now().difference(now) >= const Duration(seconds: 2)) {
+          DateTime.now().difference(now) >= Duration(seconds: 2)) {
         _lastBackAttempt = null;
       }
     });
@@ -360,7 +407,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
 
   void _scheduleRevealAutoHide() {
     final token = ++_revealAutoHideToken;
-    Future<void>.delayed(const Duration(seconds: 5), () {
+    Future<void>.delayed(Duration(seconds: 5), () {
       if (!mounted ||
           token != _revealAutoHideToken ||
           _phase != Phase.reveal ||
@@ -375,7 +422,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   void _addPlayer() {
     if (_players.length >= 10) return;
     setState(() {
-      _players.add('Player ${_players.length + 1}');
+      _players.add('');
       _syncControllers();
     });
   }
@@ -416,7 +463,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
 
   void _revealRole() {
     if (_revealed) {
-      // Any tap on the revealed card restarts the five-second privacy timer.
+      // Any tap on the revealed PaletteScope.of(context).palette.card restarts the five-second privacy timer.
       _scheduleRevealAutoHide();
       return;
     }
@@ -524,16 +571,16 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   Widget _page(Widget child) => SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 620),
+            constraints: BoxConstraints(maxWidth: 620),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+              padding: EdgeInsets.fromLTRB(18, 14, 18, 18),
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 280),
+                duration: Duration(milliseconds: 280),
                 switchInCurve: Curves.easeOutCubic,
                 transitionBuilder: (child, animation) => FadeTransition(
                   opacity: animation,
                   child: SlideTransition(
-                    position: Tween<Offset>(begin: const Offset(0, .035), end: Offset.zero).animate(animation),
+                    position: Tween<Offset>(begin: Offset(0, .035), end: Offset.zero).animate(animation),
                     child: child,
                   ),
                 ),
@@ -544,14 +591,14 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         ),
       );
 
-  Widget _panel(Widget child, {EdgeInsets padding = const EdgeInsets.all(14)}) => Container(
+  Widget _panel(Widget child, {EdgeInsets padding = EdgeInsets.all(14)}) => Container(
         width: double.infinity,
         padding: padding,
         decoration: BoxDecoration(
-          color: card.withValues(alpha: .94),
-          border: Border.all(color: accent.withValues(alpha: .9)),
+          color: PaletteScope.of(context).palette.card.withValues(alpha: .94),
+          border: Border.all(color: PaletteScope.of(context).palette.accent.withValues(alpha: .9)),
           borderRadius: BorderRadius.circular(28),
-          boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 25, offset: Offset(0, 10))],
+          boxShadow: [BoxShadow(color: Color(0x55000000), blurRadius: 25, offset: Offset(0, 10))],
         ),
         child: child,
       );
@@ -563,15 +610,15 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           child: FilledButton(
             onPressed: onPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: main ? primary : card2,
+              backgroundColor: main ? PaletteScope.of(context).palette.primary : PaletteScope.of(context).palette.card2,
               foregroundColor: Colors.white,
-              disabledBackgroundColor: card2.withValues(alpha: .5),
+              disabledBackgroundColor: PaletteScope.of(context).palette.card2.withValues(alpha: .5),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(28),
-                side: BorderSide(color: main ? const Color(0xFFFF6390) : accent),
+                side: BorderSide(color: main ? Color(0xFFFF6390) : PaletteScope.of(context).palette.accent),
               ),
               minimumSize: Size.fromHeight(compact ? 44 : 52),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: .7),
+              textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: .7),
             ),
             child: Text(label, textAlign: TextAlign.center),
           ),
@@ -582,62 +629,132 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 10),
             decoration: BoxDecoration(
-              color: accent.withValues(alpha: .10),
-              border: Border.all(color: accent),
+              color: PaletteScope.of(context).palette.accent.withValues(alpha: .10),
+              border: Border.all(color: PaletteScope.of(context).palette.accent),
               borderRadius: BorderRadius.circular(30),
-              boxShadow: [BoxShadow(color: accent.withValues(alpha: .12), blurRadius: 22)],
+              boxShadow: [BoxShadow(color: PaletteScope.of(context).palette.accent.withValues(alpha: .12), blurRadius: 22)],
             ),
-            child: Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 2)),
+            child: Text(title, textAlign: TextAlign.center, style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 2)),
           ),
           if (subtitle != null) Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 14),
-            child: Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: muted, fontWeight: FontWeight.w700, letterSpacing: 1)),
+            padding: EdgeInsets.only(top: 8, bottom: 14),
+            child: Text(subtitle, textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700, letterSpacing: 1)),
           ),
         ],
       );
 
   Widget _nav() => Center(
         child: Container(
-          margin: const EdgeInsets.only(bottom: 14),
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(color: const Color(0xCC170925), border: Border.all(color: muted.withValues(alpha: .6)), borderRadius: BorderRadius.circular(28)),
+          margin: EdgeInsets.only(bottom: 14),
+          padding: EdgeInsets.all(3),
+          decoration: BoxDecoration(color: Color(0xCC170925), border: Border.all(color: PaletteScope.of(context).palette.muted.withValues(alpha: .6)), borderRadius: BorderRadius.circular(28)),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            TextButton(onPressed: () => _go(Phase.menu), child: const Text('GAME')),
-            TextButton(onPressed: () => _go(Phase.history), child: const Text('HISTORY')),
+            TextButton(onPressed: () => _go(Phase.menu), child: Text('GAME')),
+            TextButton(onPressed: () => _go(Phase.history), child: Text('HISTORY')),
           ]),
         ),
       );
 
+  Widget _themeButton() {
+    final scope = PaletteScope.of(context);
+    return Padding(
+      padding: EdgeInsets.only(top: 2, bottom: 4),
+      child: OutlinedButton.icon(
+        onPressed: () => showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: scope.palette.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+          builder: (sheetContext) => SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('CHOOSE YOUR COLOUR', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: scope.palette.muted)),
+                  SizedBox(height: 14),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: List.generate(gamePalettes.length, (i) {
+                      final item = gamePalettes[i];
+                      final selected = i == scope.selectedIndex;
+                      return Semantics(
+                        button: true,
+                        selected: selected,
+                        label: item.name,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(22),
+                          onTap: () {
+                            scope.onSelect(i);
+                            Navigator.of(sheetContext).pop();
+                          },
+                          child: AnimatedContainer(
+                            duration: Duration(milliseconds: 250),
+                            curve: Curves.easeInOutCubic,
+                            width: 142,
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: item.card2,
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(color: selected ? item.accent : item.card2, width: selected ? 2.5 : 1),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(width: 34, height: 34, decoration: BoxDecoration(color: item.primary, shape: BoxShape.circle, border: Border.all(color: item.accent, width: 3))),
+                                SizedBox(width: 10),
+                                Expanded(child: Text(item.name, style: TextStyle(fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis)),
+                                if (selected) Icon(Icons.check_circle, color: item.accent, size: 18),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        icon: Icon(Icons.palette_outlined, color: scope.palette.accent),
+        label: Text('COLOURS · ${scope.palette.name}', style: TextStyle(color: scope.palette.muted, fontWeight: FontWeight.w800)),
+        style: OutlinedButton.styleFrom(side: BorderSide(color: scope.palette.accent), shape: StadiumBorder(), padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
+      ),
+    );
+  }
+
   Widget _menu() => Column(
-        key: const ValueKey('menu'),
+        key: ValueKey('menu'),
         children: [
           _nav(),
           _heading('IMPOSTER', subtitle: 'ONE WORD. ONE FAKE. FIND THEM.'),
-          const SizedBox(height: 4),
+          _themeButton(),
+          SizedBox(height: 4),
           Expanded(
             child: SingleChildScrollView(
               child: _panel(Column(
                 children: List.generate(_players.length, (i) => Padding(
-                  padding: const EdgeInsets.only(bottom: 9),
+                  padding: EdgeInsets.only(bottom: 9),
                   child: Row(children: [
-                    const Icon(Icons.person, color: muted, size: 28),
-                    const SizedBox(width: 8),
+                    Icon(Icons.person, color: PaletteScope.of(context).palette.muted, size: 28),
+                    SizedBox(width: 8),
                     Expanded(child: TextField(
                       key: ValueKey('player-$i'),
                       controller: _controllers[i],
                       onChanged: (v) => _players[i] = v,
                       textCapitalization: TextCapitalization.words,
                       decoration: InputDecoration(
-                        hintText: 'Player name',
+                        hintText: 'Player ${i + 1} (optional)',
                         filled: true,
-                        fillColor: card2,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+                        fillColor: PaletteScope.of(context).palette.card2,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 11),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
                       ),
                     )),
-                    if (_players.length > 3) IconButton(onPressed: () => _removePlayer(i), icon: const Icon(Icons.remove_circle, color: danger)),
+                    if (_players.length > 3) IconButton(onPressed: () => _removePlayer(i), icon: Icon(Icons.remove_circle, color: danger)),
                   ]),
                 )),
               )),
@@ -645,7 +762,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           ),
           _button('+ ADD PLAYER', _players.length < 10 ? _addPlayer : null),
           _button('PLAY', _startRound, main: true),
-          const Padding(padding: EdgeInsets.only(top: 10), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: muted))),
+          Padding(padding: EdgeInsets.only(top: 10), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: PaletteScope.of(context).palette.muted))),
         ],
       );
 
@@ -653,44 +770,44 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     final player = _players[_revealIndex];
     final isImposter = _revealIndex == _imposterIndex;
     return Column(
-      key: const ValueKey('reveal'),
+      key: ValueKey('reveal'),
       children: [
-        const SizedBox(height: 6),
-        Text(player.toUpperCase(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 29, fontWeight: FontWeight.w900)),
-        const Text("It's your turn.", style: TextStyle(color: muted, fontSize: 17)),
-        const SizedBox(height: 18),
+        SizedBox(height: 6),
+        Text(player.toUpperCase(), textAlign: TextAlign.center, style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900)),
+        Text("It's your turn.", style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 17)),
+        SizedBox(height: 18),
         Expanded(
           child: Stack(children: [
             Container(
               width: double.infinity,
-              decoration: BoxDecoration(color: card, border: Border.all(color: accent), borderRadius: BorderRadius.circular(28)),
-              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(color: PaletteScope.of(context).palette.card, border: Border.all(color: PaletteScope.of(context).palette.accent), borderRadius: BorderRadius.circular(28)),
+              padding: EdgeInsets.all(24),
               child: Center(
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 280),
+                  duration: Duration(milliseconds: 280),
                   child: !_revealed
-                      ? const Text('PRIVATE ROLE REVEAL', key: ValueKey('hidden'), style: TextStyle(color: muted, fontWeight: FontWeight.w800, letterSpacing: 1))
+                      ? Text('PRIVATE ROLE REVEAL', key: ValueKey('hidden'), style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w800, letterSpacing: 1))
                       : Column(
-                          key: const ValueKey('shown'),
+                          key: ValueKey('shown'),
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: isImposter
                               ? [
-                                  const Text('YOUR ROLE', style: TextStyle(color: muted)),
-                                  const SizedBox(height: 8),
-                                  const Text('YOU ARE THE IMPOSTER', textAlign: TextAlign.center, style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900, color: primary)),
-                                  const SizedBox(height: 20),
-                                  const Text('YOUR CATEGORY', style: TextStyle(color: muted)),
-                                  Text(_word!.category, textAlign: TextAlign.center, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-                                  Text(_word!.categoryHi, style: const TextStyle(color: muted, fontSize: 18)),
+                                  Text('YOUR ROLE', style: TextStyle(color: PaletteScope.of(context).palette.muted)),
+                                  SizedBox(height: 8),
+                                  Text('YOU ARE THE IMPOSTER', textAlign: TextAlign.center, style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900, color: PaletteScope.of(context).palette.primary)),
+                                  SizedBox(height: 20),
+                                  Text('YOUR CATEGORY', style: TextStyle(color: PaletteScope.of(context).palette.muted)),
+                                  Text(_word!.category, textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+                                  Text(_word!.categoryHi, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 18)),
                                 ]
                               : [
-                                  const Text('WORD', style: TextStyle(color: muted)),
-                                  Text(_word!.word, textAlign: TextAlign.center, style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900)),
-                                  Text(_word!.wordHi, textAlign: TextAlign.center, style: const TextStyle(color: muted, fontSize: 20)),
-                                  const SizedBox(height: 14),
-                                  const Text('CATEGORY', style: TextStyle(color: muted)),
-                                  Text(_word!.category, textAlign: TextAlign.center, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
-                                  Text(_word!.categoryHi, style: const TextStyle(color: muted, fontSize: 18)),
+                                  Text('WORD', style: TextStyle(color: PaletteScope.of(context).palette.muted)),
+                                  Text(_word!.word, textAlign: TextAlign.center, style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900)),
+                                  Text(_word!.wordHi, textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 20)),
+                                  SizedBox(height: 14),
+                                  Text('CATEGORY', style: TextStyle(color: PaletteScope.of(context).palette.muted)),
+                                  Text(_word!.category, textAlign: TextAlign.center, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
+                                  Text(_word!.categoryHi, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 18)),
                                 ],
                         ),
                 ),
@@ -702,8 +819,8 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                 onTap: _revealRole,
                 child: Container(
                   width: double.infinity,
-                  decoration: BoxDecoration(color: card, borderRadius: BorderRadius.circular(28), boxShadow: const [BoxShadow(color: Color(0x33AD40FF), blurRadius: 30, spreadRadius: 2)]),
-                  child: const Center(
+                  decoration: BoxDecoration(color: PaletteScope.of(context).palette.card, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: Color(0x33AD40FF), blurRadius: 30, spreadRadius: 2)]),
+                  child: Center(
                     child: Text('TAP HERE TO\nREVEAL YOUR ROLE', textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: .7)),
                   ),
                 ),
@@ -711,9 +828,9 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
             ),
           ]),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         _button(_revealIndex == _players.length - 1 ? 'FINISH REVEAL' : 'CONTINUE', _revealed ? _nextReveal : null, main: true),
-        const Padding(padding: EdgeInsets.only(top: 10), child: Text('Keep the screen private, then pass the phone.', textAlign: TextAlign.center, style: TextStyle(color: muted))),
+        Padding(padding: EdgeInsets.only(top: 10), child: Text('Keep the screen private, then pass the phone.', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted))),
       ],
     );
   }
@@ -721,58 +838,58 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   Widget _passToNext() {
     final nextPlayer = _players[_revealIndex + 1];
     return Column(
-      key: const ValueKey('passToNext'),
+      key: ValueKey('passToNext'),
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.swap_horiz_rounded, color: accent, size: 64),
-        const SizedBox(height: 20),
-        const Text(
+        Icon(Icons.swap_horiz_rounded, color: PaletteScope.of(context).palette.accent, size: 64),
+        SizedBox(height: 20),
+        Text(
           'PASS THE PHONE',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900, letterSpacing: 1.2),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         Text(
           'Pass to ${nextPlayer.toUpperCase()}',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: primary),
+          style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: PaletteScope.of(context).palette.primary),
         ),
-        const SizedBox(height: 10),
-        const Text(
+        SizedBox(height: 10),
+        Text(
           'Make sure the next player is ready before continuing.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: muted, fontSize: 16, height: 1.4),
+          style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 16, height: 1.4),
         ),
-        const SizedBox(height: 24),
-        _panel(const Row(
+        SizedBox(height: 24),
+        _panel(Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.visibility_off_outlined, color: accent),
+            Icon(Icons.visibility_off_outlined, color: PaletteScope.of(context).palette.accent),
             SizedBox(width: 10),
             Flexible(
               child: Text(
                 'Your role is hidden. Keep it secret.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: muted, fontWeight: FontWeight.w700),
+                style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700),
               ),
             ),
           ],
         )),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         _button('PASS TO ${nextPlayer.toUpperCase()}', _passToNextPlayer, main: true),
       ],
     );
   }
 
   Widget _discuss() => Column(
-        key: const ValueKey('discuss'),
+        key: ValueKey('discuss'),
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.forum_outlined, color: accent, size: 58),
-          const SizedBox(height: 12),
-          const Text('DISCUSS IRL', style: TextStyle(fontSize: 31, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 10),
-          const Text('The secret words have been revealed. Put the phone down and discuss your clues. Talk it out, make accusations, defend yourself, and decide who the Imposter is.', textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 17, height: 1.45)),
+          Icon(Icons.forum_outlined, color: PaletteScope.of(context).palette.accent, size: 58),
+          SizedBox(height: 12),
+          Text('DISCUSS IRL', style: TextStyle(fontSize: 31, fontWeight: FontWeight.w900)),
+          SizedBox(height: 10),
+          Text('The secret words have been revealed. Put the phone down and discuss your clues. Talk it out, make accusations, defend yourself, and decide who the Imposter is.', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 17, height: 1.45)),
           _button('READY TO VOTE?', _beginVoting, main: true),
         ],
       );
@@ -780,12 +897,12 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   Widget _voting() {
     final voter = _players[_voterIndex];
     return Column(
-      key: const ValueKey('voting'),
+      key: ValueKey('voting'),
       children: [
-        Text('${voter.toUpperCase()} — VOTE', textAlign: TextAlign.center, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 5),
-        const Text('Who do you think is the Imposter?', textAlign: TextAlign.center, style: TextStyle(color: muted)),
-        const SizedBox(height: 14),
+        Text('${voter.toUpperCase()} — VOTE', textAlign: TextAlign.center, style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+        SizedBox(height: 5),
+        Text('Who do you think is the Imposter?', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
+        SizedBox(height: 14),
         Expanded(
           child: GridView.builder(
             itemCount: _players.length,
@@ -798,17 +915,17 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
             itemBuilder: (context, i) => OutlinedButton(
               onPressed: () => setState(() => _selectedVote = i),
               style: OutlinedButton.styleFrom(
-                backgroundColor: _selectedVote == i ? primary : card,
+                backgroundColor: _selectedVote == i ? PaletteScope.of(context).palette.primary : PaletteScope.of(context).palette.card,
                 foregroundColor: Colors.white,
-                side: BorderSide(color: _selectedVote == i ? const Color(0xFFFF6390) : accent),
+                side: BorderSide(color: _selectedVote == i ? Color(0xFFFF6390) : PaletteScope.of(context).palette.accent),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
               ),
-              child: Text(_players[i].toUpperCase(), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800)),
+              child: Text(_players[i].toUpperCase(), textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800)),
             ),
           ),
         ),
         _button(_voterIndex == _players.length - 1 ? 'LOCK VOTE & SHOW SUMMARY' : 'CONFIRM & PASS PHONE', _confirmVote, main: true),
-        const Padding(padding: EdgeInsets.only(top: 8), child: Text('Your vote stays private between turns.', style: TextStyle(color: muted, fontSize: 13))),
+        Padding(padding: EdgeInsets.only(top: 8), child: Text('Your vote stays private between turns.', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 13))),
       ],
     );
   }
@@ -818,23 +935,23 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     final leaders = _leaders(totals);
     final maxVotes = totals.reduce(max);
     return Column(
-      key: const ValueKey('summary'),
+      key: ValueKey('summary'),
       children: [
-        const Text('VOTE SUMMARY', style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 14),
+        Text('VOTE SUMMARY', style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900)),
+        SizedBox(height: 14),
         Expanded(child: SingleChildScrollView(child: _panel(Column(children: List.generate(_players.length, (i) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 9),
+          padding: EdgeInsets.symmetric(vertical: 9),
           child: Row(children: [
-            SizedBox(width: 100, child: Text(_players[i], overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))),
+            SizedBox(width: 100, child: Text(_players[i], overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700))),
             Expanded(child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(value: maxVotes == 0 ? 0 : totals[i] / maxVotes, minHeight: 12, backgroundColor: card2, color: leaders.contains(i) ? primary : accent),
+              child: LinearProgressIndicator(value: maxVotes == 0 ? 0 : totals[i] / maxVotes, minHeight: 12, backgroundColor: PaletteScope.of(context).palette.card2, color: leaders.contains(i) ? PaletteScope.of(context).palette.primary : PaletteScope.of(context).palette.accent),
             )),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             SizedBox(width: 20, child: Text('${totals[i]}')),
           ]),
         )))))),
-        Text(leaders.length > 1 ? 'Tie detected — nobody has a sole top vote.' : 'Top vote: ${_players[leaders.first]}', textAlign: TextAlign.center, style: const TextStyle(color: muted)),
+        Text(leaders.length > 1 ? 'Tie detected — nobody has a sole top vote.' : 'Top vote: ${_players[leaders.first]}', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
         _button('REVEAL RESULTS', _finishRound, main: true),
       ],
     );
@@ -844,34 +961,34 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     final record = _selectedHistory!;
     return SingleChildScrollView(
       child: Column(
-        key: const ValueKey('results'),
+        key: ValueKey('results'),
         mainAxisSize: MainAxisSize.min,
         children: [
-        Text(record.caught ? 'IMPOSTER CAUGHT' : 'IMPOSTER NOT CAUGHT', textAlign: TextAlign.center, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 14),
+        Text(record.caught ? 'IMPOSTER CAUGHT' : 'IMPOSTER NOT CAUGHT', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+        SizedBox(height: 14),
         _panel(Column(children: [
-          const Text('WORD', style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
-          Text(record.word.word, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
-          Text(record.word.wordHi, style: const TextStyle(color: muted, fontSize: 18)),
-          const SizedBox(height: 10),
-          const Text('CATEGORY', style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
-          Text(record.word.category, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-          Text(record.word.categoryHi, style: const TextStyle(color: muted, fontSize: 18)),
+          Text('WORD', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700)),
+          Text(record.word.word, style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+          Text(record.word.wordHi, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 18)),
+          SizedBox(height: 10),
+          Text('CATEGORY', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700)),
+          Text(record.word.category, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+          Text(record.word.categoryHi, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 18)),
         ])),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         _panel(Column(children: [
-          const Text('IMPOSTER', style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
-          Text(record.imposter, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 8),
-          const Divider(color: accent),
-          const Text('SCOREBOARD', style: TextStyle(color: muted, fontWeight: FontWeight.w800)),
+          Text('IMPOSTER', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700)),
+          Text(record.imposter, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+          SizedBox(height: 8),
+          Divider(color: PaletteScope.of(context).palette.accent),
+          Text('SCOREBOARD', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w800)),
           ...List.generate(record.players.length, (i) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: EdgeInsets.symmetric(vertical: 4),
             child: Row(children: [
               Expanded(child: Text(record.players[i])),
               Text('${record.points[i] > 0 ? '+' : ''}${record.points[i]}', style: TextStyle(fontWeight: FontWeight.w900, color: record.points[i] > 0 ? good : record.points[i] < 0 ? danger : Colors.white)),
-              const SizedBox(width: 22),
-              SizedBox(width: 35, child: Text('${record.scores[i]}', textAlign: TextAlign.end, style: const TextStyle(fontWeight: FontWeight.w900))),
+              SizedBox(width: 22),
+              SizedBox(width: 35, child: Text('${record.scores[i]}', textAlign: TextAlign.end, style: TextStyle(fontWeight: FontWeight.w900))),
             ]),
           )),
         ])),
@@ -883,21 +1000,21 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   Widget _historyPage() => Column(
-        key: const ValueKey('history'),
+        key: ValueKey('history'),
         children: [
           Row(children: [
-            const Expanded(child: Text('HISTORY', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900))),
-            TextButton(onPressed: _history.isEmpty ? null : _clearHistory, child: const Text('CLEAR', style: TextStyle(color: danger))),
+            Expanded(child: Text('HISTORY', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900))),
+            TextButton(onPressed: _history.isEmpty ? null : _clearHistory, child: Text('CLEAR', style: TextStyle(color: danger))),
           ]),
           Expanded(child: _history.isEmpty
-              ? Center(child: _panel(const Column(mainAxisSize: MainAxisSize.min, children: [
+              ? Center(child: _panel(Column(mainAxisSize: MainAxisSize.min, children: [
                   Text('NO MATCHES YET', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
                   SizedBox(height: 5),
-                  Text('Finish a round and it will appear here.', textAlign: TextAlign.center, style: TextStyle(color: muted)),
+                  Text('Finish a round and it will appear here.', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
                 ])))
               : ListView.separated(
                   itemCount: _history.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 9),
+                  separatorBuilder: (_, __) => SizedBox(height: 9),
                   itemBuilder: (context, i) {
                     final r = _history[i];
                     return _panel(InkWell(
@@ -908,12 +1025,12 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                       }),
                       child: Row(children: [
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(r.word.word, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-                          Text(r.word.category, style: const TextStyle(color: muted, fontSize: 12)),
+                          Text(r.word.word, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                          Text(r.word.category, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 12)),
                         ])),
                         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                          Text(r.caught ? 'CAUGHT' : 'ESCAPED', style: const TextStyle(fontWeight: FontWeight.w800)),
-                          Text(_formatDate(r.date), style: const TextStyle(color: muted, fontSize: 12)),
+                          Text(r.caught ? 'CAUGHT' : 'ESCAPED', style: TextStyle(fontWeight: FontWeight.w800)),
+                          Text(_formatDate(r.date), style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 12)),
                         ]),
                       ]),
                     ));
@@ -926,25 +1043,25 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   Widget _historyDetail() {
     final r = _selectedHistory!;
     return Column(
-      key: const ValueKey('historyDetail'),
+      key: ValueKey('historyDetail'),
       children: [
-        const Text('ROUND HISTORY', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 14),
+        Text('ROUND HISTORY', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+        SizedBox(height: 14),
         _panel(Column(children: [
-          Text(r.word.word, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
-          Text(r.word.wordHi, style: const TextStyle(color: muted)),
-          Text(r.word.category, style: const TextStyle(fontWeight: FontWeight.w800)),
-          Text(r.word.categoryHi, style: const TextStyle(color: muted)),
-          const Divider(color: accent),
-          Text('Imposter: ${r.imposter}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-          Text(r.caught ? 'Caught' : 'Not caught', style: const TextStyle(color: muted)),
-          const SizedBox(height: 10),
+          Text(r.word.word, style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+          Text(r.word.wordHi, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
+          Text(r.word.category, style: TextStyle(fontWeight: FontWeight.w800)),
+          Text(r.word.categoryHi, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
+          Divider(color: PaletteScope.of(context).palette.accent),
+          Text('Imposter: ${r.imposter}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          Text(r.caught ? 'Caught' : 'Not caught', style: TextStyle(color: PaletteScope.of(context).palette.muted)),
+          SizedBox(height: 10),
           ...List.generate(r.players.length, (i) => Row(children: [
             Expanded(child: Text(r.players[i])),
             Text('${r.voteTotals[i]} votes · ${r.points[i] > 0 ? '+' : ''}${r.points[i]} pts · total ${r.scores[i]}'),
           ])),
         ])),
-        const Spacer(),
+        Spacer(),
         _button('BACK TO HISTORY', () => _go(Phase.history)),
         _button('BACK TO GAME', () => _go(Phase.menu), main: true),
       ],
@@ -987,11 +1104,11 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       },
       child: Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: RadialGradient(
             center: Alignment(0.85, -0.95),
             radius: 1.3,
-            colors: [Color(0xFF401067), bg],
+            colors: [Color(0xFF401067), PaletteScope.of(context).palette.background],
           ),
         ),
         child: _page(body),
