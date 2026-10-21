@@ -954,7 +954,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                     ),
                     child: Center(
                       child: Text(
-                        'TAP HERE TO\\nREVEAL YOUR ROLE',
+                        'TAP HERE TO\nREVEAL YOUR ROLE',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 24,
