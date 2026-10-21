@@ -375,10 +375,10 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           if (decoded is Map) {
             _scores
               ..clear()
-              ..addAll(decoded.entries
+              ..addAll(Map<String, int>.fromEntries(decoded.entries
                   .where((entry) => entry.key is String && entry.value is num)
                   .map((entry) => MapEntry(
-                      entry.key as String, (entry.value as num).toInt())));
+                      entry.key as String, (entry.value as num).toInt()))));
           }
         } catch (_) {
           _scores.clear();
