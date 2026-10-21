@@ -800,8 +800,6 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     return Column(
       key: ValueKey('reveal'),
       children: [
-        // Keep the player header outside the animated curtain's stack so the
-        // curtain can slide away without ever covering the player's name.
         SizedBox(height: 6),
         Text(
           player.toUpperCase(),
@@ -818,6 +816,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         SizedBox(height: 18),
         Expanded(
           child: Stack(
+            clipBehavior: Clip.hardEdge,
             children: [
               Container(
                 width: double.infinity,
