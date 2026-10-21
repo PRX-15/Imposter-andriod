@@ -1108,7 +1108,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           gradient: RadialGradient(
             center: Alignment(0.85, -0.95),
             radius: 1.3,
-            colors: [Color(0xFF401067), PaletteScope.of(context).palette.background],
+            colors: [PaletteScope.of(context).palette.card2, PaletteScope.of(context).palette.background],
           ),
         ),
         child: _page(body),
