@@ -1080,7 +1080,9 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
               final narrow = constraints.maxWidth < 400;
               final compact = constraints.maxHeight < 360;
               return GridView.builder(
-                padding: EdgeInsets.only(bottom: 6),
+                // Keep the lower choices partially below the fold like the previous
+                // voting layout; players can scroll to them without losing controls.
+                padding: EdgeInsets.only(top: 24, bottom: 6),
                 itemCount: _players.length,
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: narrow ? 1 : 2,
