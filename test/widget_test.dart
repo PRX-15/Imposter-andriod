@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:imposter_android/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('shows the IMPOSTER main menu and colour chooser', (tester) async {
@@ -60,5 +61,36 @@ void main() {
     expect(find.text('TAP HERE TO\nREVEAL YOUR ROLE'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('removing a player keeps the remaining names attached to fields', (tester) async {
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('+ ADD PLAYER'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('player-0')), 'Alice');
+    await tester.enterText(find.byKey(const ValueKey('player-1')), 'Bob');
+    await tester.enterText(find.byKey(const ValueKey('player-2')), 'Charlie');
+    await tester.enterText(find.byKey(const ValueKey('player-3')), 'Dana');
+    await tester.tap(find.byIcon(Icons.remove_circle).at(1));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('player-0')), findsOneWidget);
+    expect(tester.widget<TextField>(find.byKey(const ValueKey('player-0'))).controller!.text, 'Alice');
+    expect(tester.widget<TextField>(find.byKey(const ValueKey('player-1'))).controller!.text, 'Charlie');
+    expect(tester.widget<TextField>(find.byKey(const ValueKey('player-2'))).controller!.text, 'Dana');
+  });
+
+  testWidgets('malformed history records are skipped without hiding valid records', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'imposter_history_v1': '[{"broken":true}]',
+      'imposter_scores_v1': '{"Alice":7,"invalid":"score"}',
+    });
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('HISTORY'));
+    await tester.pumpAndSettle();
+    expect(find.text('NO MATCHES YET'), findsOneWidget);
   });
 }
