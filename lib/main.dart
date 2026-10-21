@@ -842,9 +842,11 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
 
   Widget _results() {
     final record = _selectedHistory!;
-    return Column(
-      key: const ValueKey('results'),
-      children: [
+    return SingleChildScrollView(
+      child: Column(
+        key: const ValueKey('results'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
         Text(record.caught ? 'IMPOSTER CAUGHT' : 'IMPOSTER NOT CAUGHT', textAlign: TextAlign.center, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
         const SizedBox(height: 14),
         _panel(Column(children: [
@@ -873,9 +875,10 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
             ]),
           )),
         ])),
-        _button('PLAY AGAIN', _playAgain, main: true),
-        _button('MAIN MENU', () => _go(Phase.menu)),
-      ],
+          _button('PLAY AGAIN', _playAgain, main: true),
+          _button('MAIN MENU', () => _go(Phase.menu)),
+        ],
+      ),
     );
   }
 
