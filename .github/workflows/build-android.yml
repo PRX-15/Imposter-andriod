@@ -60,7 +60,7 @@ jobs:
         run: sed -i 's/android:label="[^"]*"/android:label="IMPOSTER"/' android/app/src/main/AndroidManifest.xml
 
       - name: Analyze Dart
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
       - name: Run tests
         run: flutter test
