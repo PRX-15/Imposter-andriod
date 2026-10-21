@@ -400,16 +400,18 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(onMenu
-              ? 'Press back again to quit IMPOSTER'
-              : 'Press back again to return to the main menu'),
+          content: Text(
+            onMenu
+                ? 'Press back again to quit IMPOSTER'
+                : 'Press back again to return to the main menu',
+            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+          ),
           duration: Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
           margin: EdgeInsets.fromLTRB(18, 0, 18, 54),
           padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
           backgroundColor: Colors.white,
-          contentTextStyle: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
         ),
       );
     Future<void>.delayed(Duration(seconds: 2), () {
@@ -607,7 +609,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         ),
       );
 
-  Widget _panel(Widget child, {EdgeInsets padding = EdgeInsets.all(14)}) => Container(
+  Widget _panel(Widget child, {EdgeInsets padding = const EdgeInsets.all(14)}) => Container(
         width: double.infinity,
         padding: padding,
         decoration: BoxDecoration(
