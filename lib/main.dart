@@ -292,6 +292,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   RoundRecord? _selectedHistory;
   bool _revealed = false;
   bool _busy = false;
+  bool _roundAwarded = false;
   DateTime? _lastBackAttempt;
   int _revealAutoHideToken = 0;
   late final AnimationController _curtainController;
@@ -352,26 +353,48 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     setState(() {
       if (raw != null) {
         try {
-          _history
-            ..clear()
-            ..addAll((jsonDecode(raw) as List).map(
-              (e) => RoundRecord.fromJson(Map<String, dynamic>.from(e as Map)),
-            ));
+          final decoded = jsonDecode(raw);
+          if (decoded is List) {
+            _history
+              ..clear()
+              ..addAll(decoded.whereType<Map>().map((entry) {
+                try {
+                  return RoundRecord.fromJson(Map<String, dynamic>.from(entry));
+                } catch (_) {
+                  return null;
+                }
+              }).whereType<RoundRecord>().where(_isValidRecord));
+          }
         } catch (_) {
           _history.clear();
         }
       }
       if (scoreRaw != null) {
         try {
-          _scores
-            ..clear()
-            ..addAll(Map<String, dynamic>.from(jsonDecode(scoreRaw) as Map)
-                .map((k, v) => MapEntry(k, (v as num).toInt())));
+          final decoded = jsonDecode(scoreRaw);
+          if (decoded is Map) {
+            _scores
+              ..clear()
+              ..addAll(Map<String, int>.fromEntries(decoded.entries
+                  .where((entry) => entry.key is String && entry.value is num)
+                  .map((entry) => MapEntry(
+                      entry.key as String, (entry.value as num).toInt()))));
+          }
         } catch (_) {
           _scores.clear();
         }
       }
     });
+  }
+
+  bool _isValidRecord(RoundRecord record) {
+    final count = record.players.length;
+    return record.date.isNotEmpty &&
+        record.word.word.isNotEmpty &&
+        count > 0 &&
+        record.voteTotals.length == count &&
+        record.points.length == count &&
+        record.scores.length == count;
   }
 
   Future<void> _persist() async {
@@ -456,15 +479,22 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   void _removePlayer(int i) {
-    if (_players.length <= 3) return;
+    if (_players.length <= 3 || i < 0 || i >= _players.length) return;
     setState(() {
       _players.removeAt(i);
-      _syncControllers();
+      // Keep remaining fields attached to their controllers so focus and text
+      // selection survive removing a row before them.
+      _controllers.removeAt(i).dispose();
     });
   }
 
   void _startRound() {
-    if (_busy || _players.length < 3 || _players.length > 10) return;
+    if (_busy ||
+        (_phase != Phase.menu && _phase != Phase.results) ||
+        _players.length < 3 ||
+        _players.length > 10) {
+      return;
+    }
     setState(() {
       _busy = true;
       for (var i = 0; i < _players.length; i++) {
@@ -480,6 +510,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       _voterIndex = 0;
       _selectedVote = null;
       _revealed = false;
+      _roundAwarded = false;
       for (final p in _players) {
         _scores.putIfAbsent(p, () => 0);
       }
@@ -524,6 +555,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   void _beginVoting() {
+    if (_phase != Phase.discuss) return;
     setState(() {
       _voterIndex = 0;
       _selectedVote = null;
@@ -533,7 +565,15 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   void _confirmVote() {
-    if (_selectedVote == null) return;
+    if (_phase != Phase.voting ||
+        _selectedVote == null ||
+        _voterIndex < 0 ||
+        _voterIndex >= _players.length ||
+        _votes.containsKey(_voterIndex) ||
+        _selectedVote! < 0 ||
+        _selectedVote! >= _players.length) {
+      return;
+    }
     setState(() {
       _votes[_voterIndex] = _selectedVote!;
       _selectedVote = null;
@@ -566,6 +606,13 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   Future<void> _finishRound() async {
+    if (_phase != Phase.summary ||
+        _roundAwarded ||
+        _word == null ||
+        _votes.length != _players.length) {
+      return;
+    }
+    _roundAwarded = true;
     final totals = _voteTotals();
     final leaders = _leaders(totals);
     final caught = leaders.length == 1 && leaders.first == _imposterIndex;
