@@ -825,10 +825,38 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           child: Stack(
             clipBehavior: Clip.hardEdge,
             children: [
-              // The header belongs to the reveal page, not the moving curtain.
-              // Keeping it outside the curtain's stack prevents the reveal animation
-              // from drawing over the player's name and turn label.
-              Container(
+              // A fixed header layer sits above the reveal card and curtain.
+              Positioned(
+                top: 6,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        player.toUpperCase(),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900),
+                      ),
+                      Text(
+                        "It's your turn.",
+                        style: TextStyle(
+                          color: PaletteScope.of(context).palette.muted,
+                          fontSize: 17,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Reserve space for the header while the card and curtain move below it.
+              Padding(
+                padding: EdgeInsets.only(top: 72),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: PaletteScope.of(context).palette.card,
@@ -974,6 +1002,9 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
+                ),
+              ),
+                  ],
                 ),
               ),
             ],
