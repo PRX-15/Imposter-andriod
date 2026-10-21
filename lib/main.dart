@@ -598,7 +598,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           color: PaletteScope.of(context).palette.card.withValues(alpha: .94),
           border: Border.all(color: PaletteScope.of(context).palette.accent.withValues(alpha: .9)),
           borderRadius: BorderRadius.circular(28),
-          boxShadow: [BoxShadow(color: Color(0x55000000), blurRadius: 25, offset: Offset(0, 10))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .32), blurRadius: 25, offset: Offset(0, 10))],
         ),
         child: child,
       );
@@ -649,7 +649,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         child: Container(
           margin: EdgeInsets.only(bottom: 14),
           padding: EdgeInsets.all(3),
-          decoration: BoxDecoration(color: Color(0xCC170925), border: Border.all(color: PaletteScope.of(context).palette.muted.withValues(alpha: .6)), borderRadius: BorderRadius.circular(28)),
+          decoration: BoxDecoration(color: PaletteScope.of(context).palette.background.withValues(alpha: .86), border: Border.all(color: PaletteScope.of(context).palette.muted.withValues(alpha: .6)), borderRadius: BorderRadius.circular(28)),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             TextButton(onPressed: () => _go(Phase.menu), child: Text('GAME')),
             TextButton(onPressed: () => _go(Phase.history), child: Text('HISTORY')),
@@ -819,7 +819,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                 onTap: _revealRole,
                 child: Container(
                   width: double.infinity,
-                  decoration: BoxDecoration(color: PaletteScope.of(context).palette.card, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: Color(0x33AD40FF), blurRadius: 30, spreadRadius: 2)]),
+                  decoration: BoxDecoration(color: PaletteScope.of(context).palette.card, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: PaletteScope.of(context).palette.accent.withValues(alpha: .2), blurRadius: 30, spreadRadius: 2)]),
                   child: Center(
                     child: Text('TAP HERE TO\nREVEAL YOUR ROLE', textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: .7)),
                   ),
