@@ -754,44 +754,51 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     );
   }
 
-  Widget _menu() => Column(
-        key: ValueKey('menu'),
-        children: [
-          _nav(),
-          _heading('IMPOSTER', subtitle: 'ONE WORD. ONE FAKE. FIND THEM.'),
-          _themeButton(),
-          SizedBox(height: 4),
-          Expanded(
-            child: SingleChildScrollView(
-              child: _panel(Column(
-                children: List.generate(_players.length, (i) => Padding(
-                  padding: EdgeInsets.only(bottom: 9),
-                  child: Row(children: [
-                    Icon(Icons.person, color: PaletteScope.of(context).palette.muted, size: 28),
-                    SizedBox(width: 8),
-                    Expanded(child: TextField(
-                      key: ValueKey('player-$i'),
-                      controller: _controllers[i],
-                      onChanged: (v) => _updatePlayerName(i, v),
-                      textCapitalization: TextCapitalization.words,
-                      decoration: InputDecoration(
-                        hintText: 'Enter player ${i + 1} name',
-                        filled: true,
-                        fillColor: PaletteScope.of(context).palette.card2,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 11),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
-                      ),
-                    )),
-                    if (_players.length > 3) IconButton(onPressed: () => _removePlayer(i), icon: Icon(Icons.remove_circle, color: danger)),
-                  ]),
+  Widget _menu() => LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          key: ValueKey('menu'),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.only(bottom: 12),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _nav(),
+                _heading('IMPOSTER', subtitle: 'ONE WORD. ONE FAKE. FIND THEM.'),
+                _themeButton(),
+                SizedBox(height: 4),
+                _panel(Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(_players.length, (i) => Padding(
+                    padding: EdgeInsets.only(bottom: 9),
+                    child: Row(children: [
+                      Icon(Icons.person, color: PaletteScope.of(context).palette.muted, size: 28),
+                      SizedBox(width: 8),
+                      Expanded(child: TextField(
+                        key: ValueKey('player-$i'),
+                        controller: _controllers[i],
+                        onChanged: (v) => _updatePlayerName(i, v),
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          hintText: 'Enter player ${i + 1} name',
+                          filled: true,
+                          fillColor: PaletteScope.of(context).palette.card2,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
+                        ),
+                      )),
+                      if (_players.length > 3) IconButton(onPressed: () => _removePlayer(i), icon: Icon(Icons.remove_circle, color: danger)),
+                    ]),
+                  )),
                 )),
-              )),
+                _button('+ ADD PLAYER', _players.length < 10 ? _addPlayer : null),
+                _button('PLAY', _startRound, main: true),
+                Padding(padding: EdgeInsets.only(top: 10), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: PaletteScope.of(context).palette.muted))),
+              ],
             ),
           ),
-          _button('+ ADD PLAYER', _players.length < 10 ? _addPlayer : null),
-          _button('PLAY', _startRound, main: true),
-          Padding(padding: EdgeInsets.only(top: 10), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: PaletteScope.of(context).palette.muted))),
-        ],
+        ),
       );
 
   Widget _reveal() {
@@ -818,6 +825,9 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           child: Stack(
             clipBehavior: Clip.hardEdge,
             children: [
+              // The header belongs to the reveal page, not the moving curtain.
+              // Keeping it outside the curtain's stack prevents the reveal animation
+              // from drawing over the player's name and turn label.
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
