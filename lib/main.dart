@@ -323,14 +323,24 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
 
   void _syncControllers() {
     while (_controllers.length < _players.length) {
-      final c = TextEditingController(text: _players[_controllers.length]);
-      _controllers.add(c);
+      _controllers.add(TextEditingController(text: _players[_controllers.length]));
     }
     while (_controllers.length > _players.length) {
       _controllers.removeLast().dispose();
     }
     for (var i = 0; i < _players.length; i++) {
-      if (_controllers[i].text != _players[i]) _controllers[i].text = _players[i];
+      if (_controllers[i].text != _players[i]) {
+        _controllers[i].value = TextEditingValue(
+          text: _players[i],
+          selection: TextSelection.collapsed(offset: _players[i].length),
+        );
+      }
+    }
+  }
+
+  void _updatePlayerName(int index, String value) {
+    if (index >= 0 && index < _players.length) {
+      _players[index] = value;
     }
   }
 
@@ -762,10 +772,10 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                     Expanded(child: TextField(
                       key: ValueKey('player-$i'),
                       controller: _controllers[i],
-                      onChanged: (v) => _players[i] = v,
+                      onChanged: (v) => _updatePlayerName(i, v),
                       textCapitalization: TextCapitalization.words,
                       decoration: InputDecoration(
-                        hintText: 'Player ${i + 1} (optional)',
+                        hintText: 'Enter player ${i + 1} name',
                         filled: true,
                         fillColor: PaletteScope.of(context).palette.card2,
                         contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 11),
