@@ -825,38 +825,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           child: Stack(
             clipBehavior: Clip.hardEdge,
             children: [
-              // A fixed header layer sits above the reveal card and curtain.
-              Positioned(
-                top: 6,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        player.toUpperCase(),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900),
-                      ),
-                      Text(
-                        "It's your turn.",
-                        style: TextStyle(
-                          color: PaletteScope.of(context).palette.muted,
-                          fontSize: 17,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // Reserve space for the header while the card and curtain move below it.
-              Padding(
-                padding: EdgeInsets.only(top: 72),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Container(
+              Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: PaletteScope.of(context).palette.card,
@@ -992,7 +961,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                     ),
                     child: Center(
                       child: Text(
-                        'TAP HERE TO\nREVEAL YOUR ROLE',
+                        'TAP HERE TO\\nREVEAL YOUR ROLE',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 24,
@@ -1002,9 +971,6 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
-                ),
-              ),
-                  ],
                 ),
               ),
             ],
