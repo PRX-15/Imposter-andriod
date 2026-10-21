@@ -11,6 +11,23 @@ class GamePalette {
   const GamePalette({required this.name, required this.background, required this.card, required this.card2, required this.accent, required this.primary, required this.muted});
   final String name;
   final Color background, card, card2, accent, primary, muted;
+
+  static GamePalette lerp(GamePalette a, GamePalette b, double t) => GamePalette(
+    name: b.name,
+    background: Color.lerp(a.background, b.background, t)!,
+    card: Color.lerp(a.card, b.card, t)!,
+    card2: Color.lerp(a.card2, b.card2, t)!,
+    accent: Color.lerp(a.accent, b.accent, t)!,
+    primary: Color.lerp(a.primary, b.primary, t)!,
+    muted: Color.lerp(a.muted, b.muted, t)!,
+  );
+}
+
+class GamePaletteTween extends Tween<GamePalette> {
+  GamePaletteTween({super.begin, required super.end});
+
+  @override
+  GamePalette lerp(double t) => GamePalette.lerp(begin ?? end!, end!, t);
 }
 
 const List<GamePalette> gamePalettes = [
@@ -22,12 +39,6 @@ const List<GamePalette> gamePalettes = [
   GamePalette(name: 'Monochrome', background: Color(0xFF08090B), card: Color(0xFF1D2025), card2: Color(0xFF30343B), accent: Color(0xFFCED4DE), primary: Color(0xFF777F8C), muted: Color(0xFFD0D4DC)),
 ];
 
-const Color bg = Color(0xFF090413);
-const Color card = Color(0xFF211039);
-const Color card2 = Color(0xFF331452);
-const Color accent = Color(0xFFAD40FF);
-const Color primary = Color(0xFFFF1F61);
-const Color muted = Color(0xFFB89ED9);
 const Color good = Color(0xFF59D968);
 const Color danger = Color(0xFFFF5968);
 
@@ -177,27 +188,32 @@ class _ImposterAppState extends State<ImposterApp> {
     }
   }
   @override
-  Widget build(BuildContext context) {
-    final palette = gamePalettes[_paletteIndex];
-    final theme = ThemeData(
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: palette.background,
-      colorScheme: ColorScheme.dark(primary: palette.primary, secondary: palette.accent, surface: palette.card),
-      fontFamily: 'Roboto',
-      useMaterial3: true,
-    );
-    return AnimatedTheme(
-      data: theme,
-      duration: const Duration(milliseconds: 360),
-      curve: Curves.easeInOutCubic,
-      child: PaletteScope(
+  Widget build(BuildContext context) => TweenAnimationBuilder<GamePalette>(
+    tween: GamePaletteTween(end: gamePalettes[_paletteIndex]),
+    duration: const Duration(milliseconds: 380),
+    curve: Curves.easeInOutCubic,
+    builder: (context, palette, _) {
+      final theme = ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: palette.background,
+        colorScheme: ColorScheme.dark(primary: palette.primary, secondary: palette.accent, surface: palette.card),
+        fontFamily: 'Roboto',
+        useMaterial3: true,
+      );
+      return PaletteScope(
         palette: palette,
         selectedIndex: _paletteIndex,
         onSelect: _selectPalette,
-        child: MaterialApp(title: 'IMPOSTER', debugShowCheckedModeBanner: false, theme: theme, home: const LaunchSplash()),
-      ),
-    );
-  }
+        child: MaterialApp(
+          title: 'IMPOSTER',
+          debugShowCheckedModeBanner: false,
+          theme: theme,
+          themeAnimationDuration: Duration.zero,
+          home: const LaunchSplash(),
+        ),
+      );
+    },
+  );
 }
 
 class PaletteScope extends InheritedWidget {
