@@ -800,78 +800,170 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     return Column(
       key: ValueKey('reveal'),
       children: [
+        // Keep the player header outside the animated curtain's stack so the
+        // curtain can slide away without ever covering the player's name.
+        SizedBox(height: 6),
+        Text(
+          player.toUpperCase(),
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900),
+        ),
+        Text(
+          "It's your turn.",
+          style: TextStyle(
+            color: PaletteScope.of(context).palette.muted,
+            fontSize: 17,
+          ),
+        ),
+        SizedBox(height: 18),
         Expanded(
           child: Stack(
-            clipBehavior: Clip.hardEdge,
             children: [
-              Column(
-                children: [
-                  SizedBox(height: 72),
-                  Expanded(
-                    child: Stack(children: [
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(color: PaletteScope.of(context).palette.card, border: Border.all(color: PaletteScope.of(context).palette.accent), borderRadius: BorderRadius.circular(28)),
-              padding: EdgeInsets.all(24),
-              child: Center(
-                child: AnimatedSwitcher(
-                  duration: Duration(milliseconds: 280),
-                  child: !_revealed
-                      ? Text('PRIVATE ROLE REVEAL', key: ValueKey('hidden'), style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w800, letterSpacing: 1))
-                      : Column(
-                          key: ValueKey('shown'),
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: isImposter
-                              ? [
-                                  Text('YOUR ROLE', style: TextStyle(color: PaletteScope.of(context).palette.muted)),
-                                  SizedBox(height: 8),
-                                  Text('YOU ARE THE IMPOSTER', textAlign: TextAlign.center, style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900, color: PaletteScope.of(context).palette.primary)),
-                                  SizedBox(height: 20),
-                                  Text('YOUR CATEGORY', style: TextStyle(color: PaletteScope.of(context).palette.muted)),
-                                  Text(_word!.category, textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-                                  Text(_word!.categoryHi, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 18)),
-                                ]
-                              : [
-                                  Text('WORD', style: TextStyle(color: PaletteScope.of(context).palette.muted)),
-                                  Text(_word!.word, textAlign: TextAlign.center, style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900)),
-                                  Text(_word!.wordHi, textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 20)),
-                                  SizedBox(height: 14),
-                                  Text('CATEGORY', style: TextStyle(color: PaletteScope.of(context).palette.muted)),
-                                  Text(_word!.category, textAlign: TextAlign.center, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
-                                  Text(_word!.categoryHi, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 18)),
-                                ],
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: PaletteScope.of(context).palette.card,
+                  border: Border.all(
+                    color: PaletteScope.of(context).palette.accent,
+                  ),
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                padding: EdgeInsets.all(24),
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: Duration(milliseconds: 280),
+                    child: !_revealed
+                        ? Text(
+                            'PRIVATE ROLE REVEAL',
+                            key: ValueKey('hidden'),
+                            style: TextStyle(
+                              color: PaletteScope.of(context).palette.muted,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1,
+                            ),
+                          )
+                        : Column(
+                            key: ValueKey('shown'),
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: isImposter
+                                ? [
+                                    Text(
+                                      'YOUR ROLE',
+                                      style: TextStyle(
+                                        color: PaletteScope.of(context).palette.muted,
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'YOU ARE THE IMPOSTER',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 29,
+                                        fontWeight: FontWeight.w900,
+                                        color: PaletteScope.of(context).palette.primary,
+                                      ),
+                                    ),
+                                    SizedBox(height: 20),
+                                    Text(
+                                      'YOUR CATEGORY',
+                                      style: TextStyle(
+                                        color: PaletteScope.of(context).palette.muted,
+                                      ),
+                                    ),
+                                    Text(
+                                      _word!.category,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    Text(
+                                      _word!.categoryHi,
+                                      style: TextStyle(
+                                        color: PaletteScope.of(context).palette.muted,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ]
+                                : [
+                                    Text(
+                                      'WORD',
+                                      style: TextStyle(
+                                        color: PaletteScope.of(context).palette.muted,
+                                      ),
+                                    ),
+                                    Text(
+                                      _word!.word,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 34,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    Text(
+                                      _word!.wordHi,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: PaletteScope.of(context).palette.muted,
+                                        fontSize: 20,
+                                      ),
+                                    ),
+                                    SizedBox(height: 14),
+                                    Text(
+                                      'CATEGORY',
+                                      style: TextStyle(
+                                        color: PaletteScope.of(context).palette.muted,
+                                      ),
+                                    ),
+                                    Text(
+                                      _word!.category,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 23,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    Text(
+                                      _word!.categoryHi,
+                                      style: TextStyle(
+                                        color: PaletteScope.of(context).palette.muted,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ],
+                          ),
+                  ),
+                ),
+              ),
+              SlideTransition(
+                position: _curtainSlide,
+                child: GestureDetector(
+                  onTap: _revealRole,
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: PaletteScope.of(context).palette.card,
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: PaletteScope.of(context).palette.accent.withValues(alpha: .2),
+                          blurRadius: 30,
+                          spreadRadius: 2,
                         ),
-                ),
-              ),
-            ),
-            SlideTransition(
-              position: _curtainSlide,
-              child: GestureDetector(
-                onTap: _revealRole,
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(color: PaletteScope.of(context).palette.card, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: PaletteScope.of(context).palette.accent.withValues(alpha: .2), blurRadius: 30, spreadRadius: 2)]),
-                  child: Center(
-                    child: Text('TAP HERE TO\nREVEAL YOUR ROLE', textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: .7)),
-                  ),
-                ),
-              ),
-            ),
-                    ]),
-                  ),
-                ],
-              ),
-              Positioned(
-                top: 6,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(player.toUpperCase(), textAlign: TextAlign.center, style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900)),
-                      Text("It's your turn.", style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 17)),
-                    ],
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        'TAP HERE TO\\nREVEAL YOUR ROLE',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: .7,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -879,8 +971,19 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           ),
         ),
         SizedBox(height: 10),
-        _button(_revealIndex == _players.length - 1 ? 'FINISH REVEAL' : 'CONTINUE', _revealed ? _nextReveal : null, main: true),
-        Padding(padding: EdgeInsets.only(top: 10), child: Text('Keep the screen private, then pass the phone.', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted))),
+        _button(
+          _revealIndex == _players.length - 1 ? 'FINISH REVEAL' : 'CONTINUE',
+          _revealed ? _nextReveal : null,
+          main: true,
+        ),
+        Padding(
+          padding: EdgeInsets.only(top: 10),
+          child: Text(
+            'Keep the screen private, then pass the phone.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: PaletteScope.of(context).palette.muted),
+          ),
+        ),
       ],
     );
   }
