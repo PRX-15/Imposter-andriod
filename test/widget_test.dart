@@ -63,6 +63,39 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('home actions remain fixed while the player list scrolls', (tester) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    for (var i = 0; i < 7; i++) {
+      await tester.tap(find.text('+ ADD PLAYER'));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('IMPOSTER'), findsOneWidget);
+    expect(find.text('+ ADD PLAYER'), findsOneWidget);
+    expect(find.text('PLAY'), findsOneWidget);
+    expect(find.byKey(const ValueKey('player-list')), findsOneWidget);
+
+    final scrollable = find.descendant(
+      of: find.byKey(const ValueKey('player-list')),
+      matching: find.byType(Scrollable),
+    );
+    expect(scrollable, findsOneWidget);
+    await tester.drag(find.byKey(const ValueKey('player-list')), const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(find.text('+ ADD PLAYER'), findsOneWidget);
+    expect(find.text('PLAY'), findsOneWidget);
+    expect(find.text('IMPOSTER'), findsOneWidget);
+  });
+
   testWidgets('removing a player keeps the remaining names attached to fields', (tester) async {
     await tester.pumpWidget(const ImposterApp());
     await tester.pump(const Duration(seconds: 2));
