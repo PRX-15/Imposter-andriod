@@ -83,12 +83,11 @@ void main() {
     expect(find.text('PLAY'), findsOneWidget);
     expect(find.byKey(const ValueKey('player-list')), findsOneWidget);
 
-    final scrollable = find.descendant(
-      of: find.byKey(const ValueKey('player-list')),
-      matching: find.byType(Scrollable),
-    );
-    expect(scrollable, findsOneWidget);
-    await tester.drag(find.byKey(const ValueKey('player-list')), const Offset(0, -500));
+    final playerList = find.byKey(const ValueKey('player-list'));
+    final playerListView = tester.widget<ListView>(playerList);
+    expect(playerListView.controller, isNull);
+    expect(playerListView.primary, isNot(false));
+    await tester.drag(playerList, const Offset(0, -500));
     await tester.pumpAndSettle();
 
     expect(find.text('+ ADD PLAYER'), findsOneWidget);
