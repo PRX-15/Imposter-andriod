@@ -114,6 +114,7 @@ void main() {
     await tester.enterText(player2, 'Charlie');
     await tester.ensureVisible(player3);
     await tester.enterText(player3, 'Dana');
+    await tester.ensureVisible(find.byIcon(Icons.remove_circle).at(1));
     await tester.tap(find.byIcon(Icons.remove_circle).at(1));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('player-0')), findsOneWidget);
