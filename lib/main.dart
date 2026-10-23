@@ -279,6 +279,8 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   final Random _random = Random();
   final List<TextEditingController> _controllers = [];
   final List<String> _players = ['', '', ''];
+  final List<int> _playerIds = [0, 1, 2];
+  int _nextPlayerId = 3;
   final Map<int, int> _votes = {};
   final Map<String, int> _scores = {};
   final List<RoundRecord> _history = [];
@@ -474,6 +476,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     if (_players.length >= 10) return;
     setState(() {
       _players.add('');
+      _playerIds.add(_nextPlayerId++);
       _syncControllers();
     });
   }
@@ -482,6 +485,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     if (_players.length <= 3 || i < 0 || i >= _players.length) return;
     setState(() {
       _players.removeAt(i);
+      _playerIds.removeAt(i);
       _syncControllers();
     });
   }
@@ -826,7 +830,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                       Icon(Icons.person, color: PaletteScope.of(context).palette.muted, size: 28),
                       SizedBox(width: 8),
                       Expanded(child: TextField(
-                        key: ValueKey('player-$i'),
+                        key: ValueKey('player-${_playerIds[i]}'),
                         controller: _controllers[i],
                         onChanged: (v) => _updatePlayerName(i, v),
                         textCapitalization: TextCapitalization.words,
