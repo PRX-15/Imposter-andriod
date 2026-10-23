@@ -809,22 +809,20 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   Widget _menu() => LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          key: ValueKey('menu'),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.only(bottom: 12),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _nav(),
-                _heading('IMPOSTER', subtitle: 'ONE WORD. ONE FAKE. FIND THEM.'),
-                _themeButton(),
-                SizedBox(height: 4),
-                _panel(Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(_players.length, (i) => Padding(
+        builder: (context, constraints) => Column(
+          children: [
+            _nav(),
+            _heading('IMPOSTER', subtitle: 'ONE WORD. ONE FAKE. FIND THEM.'),
+            _themeButton(),
+            SizedBox(height: 4),
+            Expanded(
+              child: _panel(
+                ListView.builder(
+                  key: ValueKey('player-list'),
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.zero,
+                  itemCount: _players.length,
+                  itemBuilder: (context, i) => Padding(
                     padding: EdgeInsets.only(bottom: 9),
                     child: Row(children: [
                       Icon(Icons.person, color: PaletteScope.of(context).palette.muted, size: 28),
@@ -844,14 +842,15 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                       )),
                       if (_players.length > 3) IconButton(onPressed: () => _removePlayer(i), icon: Icon(Icons.remove_circle, color: danger)),
                     ]),
-                  )),
-                )),
-                _button('+ ADD PLAYER', _players.length < 10 ? _addPlayer : null),
-                _button('PLAY', _startRound, main: true),
-                Padding(padding: EdgeInsets.only(top: 10), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: PaletteScope.of(context).palette.muted))),
-              ],
+                  ),
+                ),
+                padding: EdgeInsets.all(14),
+              ),
             ),
-          ),
+            _button('+ ADD PLAYER', _players.length < 10 ? _addPlayer : null),
+            _button('PLAY', _startRound, main: true),
+            Padding(padding: EdgeInsets.only(top: 10), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: PaletteScope.of(context).palette.muted))),
+          ],
         ),
       );
 
@@ -1320,43 +1319,55 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
 
   Widget _results() {
     final record = _selectedHistory!;
-    return SingleChildScrollView(
-      child: Column(
-        key: ValueKey('results'),
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    return Column(
+      key: ValueKey('results'),
+      children: [
         Text(record.caught ? 'IMPOSTER CAUGHT' : 'IMPOSTER NOT CAUGHT', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-        SizedBox(height: 14),
-        _panel(Column(children: [
-          Text('WORD', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700)),
-          Text(record.word.word, style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
-          Text(record.word.wordHi, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 18)),
-          SizedBox(height: 10),
-          Text('CATEGORY', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700)),
-          Text(record.word.category, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-          Text(record.word.categoryHi, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 18)),
-        ])),
         SizedBox(height: 10),
-        _panel(Column(children: [
-          Text('IMPOSTER', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700)),
-          Text(record.imposter, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-          SizedBox(height: 8),
-          Divider(color: PaletteScope.of(context).palette.accent),
-          Text('SCOREBOARD', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w800)),
-          ...List.generate(record.players.length, (i) => Padding(
-            padding: EdgeInsets.symmetric(vertical: 4),
-            child: Row(children: [
-              Expanded(child: Text(record.players[i])),
-              Text('${record.points[i] > 0 ? '+' : ''}${record.points[i]}', style: TextStyle(fontWeight: FontWeight.w900, color: record.points[i] > 0 ? good : record.points[i] < 0 ? danger : Colors.white)),
-              SizedBox(width: 22),
-              SizedBox(width: 35, child: Text('${record.scores[i]}', textAlign: TextAlign.end, style: TextStyle(fontWeight: FontWeight.w900))),
-            ]),
-          )),
-        ])),
-          _button('PLAY AGAIN', _playAgain, main: true),
-          _button('MAIN MENU', () => _go(Phase.menu)),
-        ],
-      ),
+        _panel(
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('WORD', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700)),
+              Text(record.word.word, style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+              Text(record.word.wordHi, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 18)),
+              SizedBox(height: 8),
+              Text('CATEGORY', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700)),
+              Text(record.word.category, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+              Text(record.word.categoryHi, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 18)),
+            ],
+          ),
+          padding: EdgeInsets.all(12),
+        ),
+        SizedBox(height: 8),
+        Expanded(
+          child: _panel(
+            ListView(
+              key: ValueKey('results-player-list'),
+              padding: EdgeInsets.zero,
+              children: [
+                Text('IMPOSTER', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700)),
+                Text(record.imposter, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                SizedBox(height: 8),
+                Divider(color: PaletteScope.of(context).palette.accent),
+                Text('SCOREBOARD', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w800)),
+                ...List.generate(record.players.length, (i) => Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Row(children: [
+                    Expanded(child: Text(record.players[i])),
+                    Text('${record.points[i] > 0 ? '+' : ''}${record.points[i]}', style: TextStyle(fontWeight: FontWeight.w900, color: record.points[i] > 0 ? good : record.points[i] < 0 ? danger : Colors.white)),
+                    SizedBox(width: 22),
+                    SizedBox(width: 35, child: Text('${record.scores[i]}', textAlign: TextAlign.end, style: TextStyle(fontWeight: FontWeight.w900))),
+                  ]),
+                )),
+              ],
+            ),
+            padding: EdgeInsets.all(12),
+          ),
+        ),
+        _button('PLAY AGAIN', _playAgain, main: true),
+        _button('MAIN MENU', () => _go(Phase.menu)),
+      ],
     );
   }
 
