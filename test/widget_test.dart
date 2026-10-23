@@ -101,10 +101,19 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('+ ADD PLAYER'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('player-0')), 'Alice');
-    await tester.enterText(find.byKey(const ValueKey('player-1')), 'Bob');
-    await tester.enterText(find.byKey(const ValueKey('player-2')), 'Charlie');
-    await tester.enterText(find.byKey(const ValueKey('player-3')), 'Dana');
+    final player0 = find.byKey(const ValueKey('player-0'));
+    final player1 = find.byKey(const ValueKey('player-1'));
+    final player2 = find.byKey(const ValueKey('player-2'));
+    final player3 = find.byKey(const ValueKey('player-3'));
+
+    await tester.ensureVisible(player0);
+    await tester.enterText(player0, 'Alice');
+    await tester.ensureVisible(player1);
+    await tester.enterText(player1, 'Bob');
+    await tester.ensureVisible(player2);
+    await tester.enterText(player2, 'Charlie');
+    await tester.ensureVisible(player3);
+    await tester.enterText(player3, 'Dana');
     await tester.tap(find.byIcon(Icons.remove_circle).at(1));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('player-0')), findsOneWidget);
