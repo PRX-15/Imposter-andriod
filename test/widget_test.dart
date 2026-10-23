@@ -119,9 +119,10 @@ void main() {
     await tester.tap(find.byIcon(Icons.remove_circle).at(1));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('player-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('player-1')), findsNothing);
     expect(tester.widget<TextField>(find.byKey(const ValueKey('player-0'))).controller!.text, 'Alice');
-    expect(tester.widget<TextField>(find.byKey(const ValueKey('player-1'))).controller!.text, 'Charlie');
-    expect(tester.widget<TextField>(find.byKey(const ValueKey('player-2'))).controller!.text, 'Dana');
+    expect(tester.widget<TextField>(find.byKey(const ValueKey('player-2'))).controller!.text, 'Charlie');
+    expect(tester.widget<TextField>(find.byKey(const ValueKey('player-3'))).controller!.text, 'Dana');
   });
 
   testWidgets('malformed history records are skipped without hiding valid records', (tester) async {
