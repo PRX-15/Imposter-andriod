@@ -486,7 +486,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     setState(() {
       _players.removeAt(i);
       _playerIds.removeAt(i);
-      _syncControllers();
+      _controllers.removeAt(i).dispose();
     });
   }
 
