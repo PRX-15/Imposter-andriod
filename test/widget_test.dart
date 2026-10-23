@@ -96,6 +96,12 @@ void main() {
   });
 
   testWidgets('removing a player keeps the remaining names attached to fields', (tester) async {
+    // Use a realistic logical viewport so the row's remove button is hittable in CI.
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(const ImposterApp());
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
