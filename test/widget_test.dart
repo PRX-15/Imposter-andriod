@@ -101,6 +101,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('+ ADD PLAYER'));
     await tester.pumpAndSettle();
+    // Player row keys are based on stable IDs rather than their current indices.
     final player0 = find.byKey(const ValueKey('player-0'));
     final player1 = find.byKey(const ValueKey('player-1'));
     final player2 = find.byKey(const ValueKey('player-2'));
