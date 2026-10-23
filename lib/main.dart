@@ -482,8 +482,6 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     if (_players.length <= 3 || i < 0 || i >= _players.length) return;
     setState(() {
       _players.removeAt(i);
-      // Keep remaining fields attached to their controllers so focus and text
-      // selection survive removing a row before them.
       _controllers.removeAt(i).dispose();
     });
   }
