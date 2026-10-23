@@ -824,7 +824,21 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                   keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: EdgeInsets.zero,
                   itemCount: _players.length,
+                  findChildIndexCallback: (key) {
+                    if (key is ValueKey<String> &&
+                        key.value.startsWith('player-row-')) {
+                      final id = int.tryParse(
+                        key.value.substring('player-row-'.length),
+                      );
+                      if (id != null) {
+                        final index = _playerIds.indexOf(id);
+                        return index < 0 ? null : index;
+                      }
+                    }
+                    return null;
+                  },
                   itemBuilder: (context, i) => Padding(
+                    key: ValueKey('player-row-${_playerIds[i]}'),
                     padding: EdgeInsets.only(bottom: 9),
                     child: Row(children: [
                       Icon(Icons.person, color: PaletteScope.of(context).palette.muted, size: 28),
@@ -842,7 +856,12 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
                         ),
                       )),
-                      if (_players.length > 3) IconButton(onPressed: () => _removePlayer(i), icon: Icon(Icons.remove_circle, color: danger)),
+                      if (_players.length > 3)
+                        IconButton(
+                          key: ValueKey('remove-player-${_playerIds[i]}'),
+                          onPressed: () => _removePlayer(i),
+                          icon: Icon(Icons.remove_circle, color: danger),
+                        ),
                     ]),
                   ),
                 ),
