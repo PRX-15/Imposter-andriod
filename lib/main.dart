@@ -450,7 +450,14 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       }
       _recoveryChecked = true;
     });
-    if (unfinishedRaw != null && _matchStartedAt != null && mounted) {
+    // If the history write succeeded but the app was killed before the
+    // recovery key was removed, treat that recovery record as already complete.
+    if (_matchStartedAt != null &&
+        _history.any((match) => match.startedAt == _matchStartedAt)) {
+      await prefs.remove('imposter_unfinished_v2');
+      _matchStartedAt = null;
+      _currentRounds.clear();
+    } else if (unfinishedRaw != null && _matchStartedAt != null && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _showResumeDialog();
       });
