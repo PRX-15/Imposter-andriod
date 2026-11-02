@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'game_scoring.dart';
 
 void main() => runApp(const ImposterApp());
 
@@ -36,7 +37,7 @@ const List<GamePalette> gamePalettes = [
   GamePalette(name: 'Emerald', background: Color(0xFF06130D), card: Color(0xFF132C20), card2: Color(0xFF1D4430), accent: Color(0xFF57E39A), primary: Color(0xFF19B96C), muted: Color(0xFFB0E5C7)),
   GamePalette(name: 'Sunset', background: Color(0xFF1B0B08), card: Color(0xFF38201A), card2: Color(0xFF542D22), accent: Color(0xFFFFB15C), primary: Color(0xFFFF5C49), muted: Color(0xFFFFD2B7)),
   GamePalette(name: 'Rose', background: Color(0xFF190710), card: Color(0xFF351324), card2: Color(0xFF501A34), accent: Color(0xFFFF75B5), primary: Color(0xFFE92F78), muted: Color(0xFFF1B8D4)),
-  GamePalette(name: 'Rainbow Party', background: Color(0xFF17072B), card: Color(0xFF32104D), card2: Color(0xFF4A176B), accent: Color(0xFFFFE45E), primary: Color(0xFFFF4F9A), muted: Color(0xFFE9C9FF)),
+  GamePalette(name: 'Neon Royale', background: Color(0xFF10051F), card: Color(0xFF211039), card2: Color(0xFF351653), accent: Color(0xFFB65CFF), primary: Color(0xFFFF3FA4), muted: Color(0xFFE7C9FF)),
 ];
 
 const Color good = Color(0xFF59D968);
@@ -616,14 +617,13 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     }
     _roundAwarded = true;
     final totals = _voteTotals();
-    final leaders = _leaders(totals);
-    final caught = leaders.length == 1 && leaders.first == _imposterIndex;
-    final points = List<int>.filled(_players.length, 0);
-    if (!caught) points[_imposterIndex] = 2;
-    for (final entry in _votes.entries) {
-      if (entry.key == _imposterIndex) continue;
-      points[entry.key] = entry.value == _imposterIndex ? 1 : -1;
-    }
+    final scoring = calculateRoundScoring(
+      votes: _votes,
+      playerCount: _players.length,
+      imposterIndex: _imposterIndex,
+    );
+    final caught = scoring.caught;
+    final points = scoring.points;
     for (var i = 0; i < _players.length; i++) {
       _scores[_players[i]] = (_scores[_players[i]] ?? 0) + points[i];
     }
@@ -729,15 +729,18 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         ],
       );
 
-  Widget _nav() => Center(
-        child: Container(
-          margin: EdgeInsets.only(bottom: 14),
-          padding: EdgeInsets.all(3),
-          decoration: BoxDecoration(color: PaletteScope.of(context).palette.background.withValues(alpha: .86), border: Border.all(color: PaletteScope.of(context).palette.muted.withValues(alpha: .6)), borderRadius: BorderRadius.circular(28)),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            TextButton(onPressed: () => _go(Phase.menu), child: Text('GAME')),
-            TextButton(onPressed: () => _go(Phase.history), child: Text('HISTORY')),
-          ]),
+  Widget _historyButton() => Align(
+        alignment: Alignment.centerRight,
+        child: IconButton.filledTonal(
+          key: const ValueKey('history-button'),
+          tooltip: 'History',
+          onPressed: () => _go(Phase.history),
+          icon: const Icon(Icons.history_rounded),
+          style: IconButton.styleFrom(
+            backgroundColor: PaletteScope.of(context).palette.card2,
+            foregroundColor: PaletteScope.of(context).palette.accent,
+            side: BorderSide(color: PaletteScope.of(context).palette.accent),
+          ),
         ),
       );
 
@@ -813,7 +816,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   Widget _menu() => LayoutBuilder(
         builder: (context, constraints) => Column(
           children: [
-            _nav(),
+            _historyButton(),
             _heading('IMPOSTER', subtitle: 'ONE WORD. ONE FAKE. FIND THEM.'),
             _themeButton(),
             SizedBox(height: 4),
@@ -1403,7 +1406,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
               ? Center(child: _panel(Column(mainAxisSize: MainAxisSize.min, children: [
                   Text('NO MATCHES YET', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
                   SizedBox(height: 5),
-                  Text('Finish a round and it will appear here.', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
+                  Text('Completed games will appear here.', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
                 ])))
               : ListView.separated(
                   itemCount: _history.length,
