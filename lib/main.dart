@@ -432,6 +432,15 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           _players
             ..clear()
             ..addAll(List<String>.from(data['players'] as List? ?? const []));
+          if (_players.length < 3 || _players.length > 10) {
+            _players
+              ..clear()
+              ..addAll(['', '', '']);
+          }
+          _playerIds
+            ..clear()
+            ..addAll(List<int>.generate(_players.length, (index) => index));
+          _nextPlayerId = _players.length;
           _scores
             ..clear()
             ..addAll(Map<String, int>.from((data['scores'] as Map? ?? const {})
