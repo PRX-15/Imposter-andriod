@@ -1457,7 +1457,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                     backgroundColor: _selectedVote == i
                         ? PaletteScope.of(context).palette.primary
                         : PaletteScope.of(context).palette.card,
-                    foregroundColor: Colors.white,
+                    foregroundColor: PaletteScope.of(context).selectedIndex == 5 ? const Color(0xFF303544) : Colors.white,
                     side: BorderSide(
                       color: _selectedVote == i
                           ? Color(0xFFFF6390)
@@ -1663,7 +1663,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                   padding: EdgeInsets.symmetric(vertical: 4),
                   child: Row(children: [
                     Expanded(child: Text(record.players[i])),
-                    Text('${record.points[i] > 0 ? '+' : ''}${record.points[i]}', style: TextStyle(fontWeight: FontWeight.w900, color: record.points[i] > 0 ? good : record.points[i] < 0 ? danger : Colors.white)),
+                    Text('${record.points[i] > 0 ? '+' : ''}${record.points[i]}', style: TextStyle(fontWeight: FontWeight.w900, color: record.points[i] > 0 ? good : record.points[i] < 0 ? danger : (PaletteScope.of(context).selectedIndex == 5 ? const Color(0xFF303544) : Colors.white))),
                     SizedBox(width: 22),
                     SizedBox(width: 35, child: Text('${record.scores[i]}', textAlign: TextAlign.end, style: TextStyle(fontWeight: FontWeight.w900))),
                   ]),
