@@ -122,7 +122,7 @@ const List<WordEntry> wordDatabase = [
   WordEntry('Airport', 'हवाई अड्डा', 'PLACES', 'जगहें'),
   WordEntry('Beach', 'समुद्र तट', 'PLACES', 'जगहें'),
   WordEntry('Amusement Park', 'मनोरंजन पार्क', 'PLACES', 'जगहें'),
-  WordEntry(' Taj Mahal', 'ताजमहल', 'LANDMARKS', 'प्रसिद्ध स्थल'),
+  WordEntry('Taj Mahal', 'ताजमहल', 'LANDMARKS', 'प्रसिद्ध स्थल'),
   WordEntry('Eiffel Tower', 'एफ़िल टॉवर', 'LANDMARKS', 'प्रसिद्ध स्थल'),
   WordEntry('Mount Everest', 'माउंट एवरेस्ट', 'LANDMARKS', 'प्रसिद्ध स्थल'),
 
