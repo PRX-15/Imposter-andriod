@@ -1030,6 +1030,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                         key: ValueKey('player-${_playerIds[i]}'),
                         controller: _controllers[i],
                         onChanged: (v) => _updatePlayerName(i, v),
+                        readOnly: _matchStartedAt != null,
                         textCapitalization: TextCapitalization.words,
                         decoration: InputDecoration(
                           hintText: 'Enter player ${i + 1} name',
@@ -1042,7 +1043,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                       if (_players.length > 3)
                         IconButton(
                           key: ValueKey('remove-player-${_playerIds[i]}'),
-                          onPressed: () => _removePlayer(i),
+                          onPressed: _matchStartedAt == null ? () => _removePlayer(i) : null,
                           icon: Icon(Icons.remove_circle, color: danger),
                         ),
                     ]),
@@ -1051,7 +1052,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                 padding: EdgeInsets.all(14),
               ),
             ),
-            _button('+ ADD PLAYER', _players.length < 10 ? _addPlayer : null, compact: compact),
+            _button('+ ADD PLAYER', _matchStartedAt == null && _players.length < 10 ? _addPlayer : null, compact: compact),
             _button('PLAY', _startRound, main: true, compact: compact),
             if (!compact) Padding(padding: EdgeInsets.only(top: 10), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: PaletteScope.of(context).palette.muted))),
           ],
