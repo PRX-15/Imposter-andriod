@@ -856,7 +856,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   void _passAfterVote() {
-    if (_phase != Phase.votePass || _voterIndex >= _players.length - 1) return;
+    if (_phase != Phase.votePass || _voterIndex >= _roundPlayers.length - 1) return;
     setState(() {
       _voterIndex++;
       _selectedVote = null;
@@ -1414,7 +1414,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         ),
         SizedBox(height: 10),
         _button(
-          _revealIndex == _players.length - 1 ? 'FINISH REVEAL' : 'CONTINUE',
+          _revealIndex == _roundPlayers.length - 1 ? 'FINISH REVEAL' : 'CONTINUE',
           _revealed ? _nextReveal : null,
           main: true,
         ),
@@ -1556,7 +1556,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           ),
         ),
         _button(
-          _voterIndex == _players.length - 1
+          _voterIndex == _roundPlayers.length - 1
               ? 'LOCK VOTE & SHOW SUMMARY'
               : 'CONFIRM & PASS PHONE',
           _confirmVote,
