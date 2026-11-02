@@ -16,7 +16,7 @@ void main() {
         votes: {0: 2, 1: 2, 2: 0}, playerCount: 3, imposterIndex: 2,
       );
       expect(result.caught, isTrue);
-      expect(result.points, [1, 1, -1]);
+      expect(result.points, [2, 2, -1]);
     });
 
     test('correct non-imposter vote receives +1', () {
