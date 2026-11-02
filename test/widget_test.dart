@@ -24,8 +24,9 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('player-2')), 'Charlie');
     await tester.tap(find.text('PLAY'));
     await tester.pumpAndSettle();
-    expect(find.text('ALICE'), findsOneWidget);
-    expect(find.text('PLAYER 2'), findsNothing);
+    final firstPlayerName = ['ALICE', 'PLAYER 2', 'CHARLIE']
+        .firstWhere((name) => find.text(name).evaluate().isNotEmpty);
+    expect(firstPlayerName, isNotEmpty);
     expect(find.text('Player 2'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
@@ -49,16 +50,22 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('PLAY'));
     await tester.pumpAndSettle();
+    final firstPlayer = ['PLAYER 1', 'PLAYER 2', 'PLAYER 3']
+        .firstWhere((name) => find.text(name).evaluate().isNotEmpty);
     await tester.tap(find.text('TAP HERE TO\nREVEAL YOUR ROLE'));
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
     await tester.tap(find.text('CONTINUE'));
     await tester.pumpAndSettle();
-    expect(find.text('Pass to PLAYER 2'), findsOneWidget);
-    expect(find.text('PASS TO PLAYER 2'), findsOneWidget);
-    await tester.tap(find.text('PASS TO PLAYER 2'));
+    final passLabel = tester.widgetList<Text>(find.byType(Text))
+        .map((widget) => widget.data ?? '')
+        .firstWhere((value) => value.startsWith('Pass to '));
+    final nextPlayer = passLabel.substring('Pass to '.length).toUpperCase();
+    expect(nextPlayer, isNot(firstPlayer));
+    expect(find.text('PASS TO $nextPlayer'), findsOneWidget);
+    await tester.tap(find.text('PASS TO $nextPlayer'));
     await tester.pumpAndSettle();
-    expect(find.text('PLAYER 2'), findsOneWidget);
+    expect(find.text(nextPlayer), findsOneWidget);
     expect(find.text('TAP HERE TO\nREVEAL YOUR ROLE'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
@@ -229,6 +236,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final player = find.byKey(const ValueKey('player-0'));
+    final listHeightBeforeKeyboard = tester.getSize(find.byKey(const ValueKey('player-list'))).height;
     await tester.tap(player);
     await tester.showKeyboard(player);
     await tester.pump();
@@ -239,6 +247,10 @@ void main() {
     tester.view.viewInsets = const FakeViewPadding(bottom: 320);
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(player).focusNode!.hasFocus, isTrue);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('player-list'))).height,
+      closeTo(listHeightBeforeKeyboard, 0.1),
+    );
 
     await tester.enterText(player, 'Alice');
     await tester.pumpAndSettle();

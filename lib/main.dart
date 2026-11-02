@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'game_scoring.dart';
+import 'game_randomisation.dart';
 
 void main() => runApp(const ImposterApp());
 
@@ -369,10 +370,12 @@ class GameHome extends StatefulWidget {
 
 class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   final Random _random = Random();
+  late final WordCycle _wordCycle = WordCycle(random: _random);
   final List<TextEditingController> _controllers = [];
   final List<FocusNode> _playerFocusNodes = [];
   final List<String> _players = ['', '', ''];
   final List<int> _playerIds = [0, 1, 2];
+  final List<String> _roundPlayers = [];
   int _nextPlayerId = 3;
   final Map<int, int> _votes = {};
   final Map<String, int> _scores = {};
@@ -387,7 +390,6 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   int? _selectedVote;
   int _imposterIndex = 0;
   WordEntry? _word;
-  String? _lastWord;
   RoundRecord? _selectedHistory;
   bool _revealed = false;
   bool _busy = false;
@@ -458,6 +460,10 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     final matchRaw = prefs.getString('imposter_matches_v2');
     final legacyRaw = prefs.getString('imposter_history_v1');
     final unfinishedRaw = prefs.getString('imposter_unfinished_v2');
+    final savedWordBag = prefs.getStringList('imposter_word_bag_v1') ?? const <String>[];
+    final savedUsedWords = prefs.getStringList('imposter_used_words_v1') ?? const <String>[];
+    final savedLastWord = prefs.getString('imposter_last_word_v1');
+    _wordCycle.restore(remainingWords: savedWordBag, usedWords: savedUsedWords, lastWord: savedLastWord);
     if (!mounted) return;
     setState(() {
       _history.clear();
@@ -606,6 +612,18 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     }));
   }
 
+  Future<void> _persistWordCycle() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('imposter_word_bag_v1', _wordCycle.remainingWords);
+    await prefs.setStringList('imposter_used_words_v1', _wordCycle.usedWords);
+    final lastWord = _wordCycle.lastWord;
+    if (lastWord == null) {
+      await prefs.remove('imposter_last_word_v1');
+    } else {
+      await prefs.setString('imposter_last_word_v1', lastWord);
+    }
+  }
+
   Future<void> _completeMatch() async {
     if (_matchStartedAt == null || _currentRounds.isEmpty) {
       final prefs = await SharedPreferences.getInstance();
@@ -736,11 +754,12 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         _players.length > 10) {
       return;
     }
+    setState(() => _busy = true);
     FocusManager.instance.primaryFocus?.unfocus();
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
+    final selectedWord = _wordCycle.draw(wordDatabase.map((entry) => entry.word));
     setState(() {
-      _busy = true;
       if (_matchStartedAt == null) {
         _scores.clear();
         _currentRounds.clear();
@@ -750,10 +769,9 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         final editedName = _controllers[i].text.trim();
         _players[i] = editedName.isEmpty ? 'Player ${i + 1}' : editedName;
       }
-      final choices = wordDatabase.where((w) => w.word != _lastWord).toList();
-      _word = choices[_random.nextInt(choices.length)];
-      _lastWord = _word!.word;
-      _imposterIndex = _random.nextInt(_players.length);
+      _roundPlayers..clear()..addAll(createRoundOrder(_players, _random));
+      _word = wordDatabase.firstWhere((entry) => entry.word == selectedWord);
+      _imposterIndex = _random.nextInt(_roundPlayers.length);
       _votes.clear();
       _revealIndex = 0;
       _voterIndex = 0;
@@ -770,6 +788,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     _curtainController.reset();
     setState(() => _busy = false);
     _syncControllers();
+    await _persistWordCycle();
     await _persistUnfinished();
   }
 
@@ -790,7 +809,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     _curtainController.stop();
     setState(() {
       _revealed = false;
-      _phase = _revealIndex == _players.length - 1
+      _phase = _revealIndex == _roundPlayers.length - 1
           ? Phase.discuss
           : Phase.passToNext;
     });
@@ -798,7 +817,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   void _passToNextPlayer() {
-    if (_phase != Phase.passToNext || _revealIndex >= _players.length - 1) return;
+    if (_phase != Phase.passToNext || _revealIndex >= _roundPlayers.length - 1) return;
     setState(() {
       _revealIndex++;
       _revealed = false;
@@ -821,23 +840,23 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     if (_phase != Phase.voting ||
         _selectedVote == null ||
         _voterIndex < 0 ||
-        _voterIndex >= _players.length ||
+        _voterIndex >= _roundPlayers.length ||
         _votes.containsKey(_voterIndex) ||
         _selectedVote! < 0 ||
-        _selectedVote! >= _players.length) {
+        _selectedVote! >= _roundPlayers.length) {
       return;
     }
     setState(() {
       _votes[_voterIndex] = _selectedVote!;
       _selectedVote = null;
-      _phase = _voterIndex == _players.length - 1
+      _phase = _voterIndex == _roundPlayers.length - 1
           ? Phase.summary
           : Phase.votePass;
     });
   }
 
   void _passAfterVote() {
-    if (_phase != Phase.votePass || _voterIndex >= _players.length - 1) return;
+    if (_phase != Phase.votePass || _voterIndex >= _roundPlayers.length - 1) return;
     setState(() {
       _voterIndex++;
       _selectedVote = null;
@@ -846,7 +865,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   List<int> _voteTotals() {
-    final totals = List<int>.filled(_players.length, 0);
+    final totals = List<int>.filled(_roundPlayers.length, 0);
     for (final target in _votes.values) {
       if (target >= 0 && target < totals.length) totals[target]++;
     }
@@ -862,30 +881,30 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     if (_phase != Phase.summary ||
         _roundAwarded ||
         _word == null ||
-        _votes.length != _players.length) {
+        _votes.length != _roundPlayers.length) {
       return;
     }
     _roundAwarded = true;
     final totals = _voteTotals();
     final scoring = calculateRoundScoring(
       votes: _votes,
-      playerCount: _players.length,
+      playerCount: _roundPlayers.length,
       imposterIndex: _imposterIndex,
     );
     final caught = scoring.caught;
     final points = scoring.points;
-    for (var i = 0; i < _players.length; i++) {
-      _scores[_players[i]] = (_scores[_players[i]] ?? 0) + points[i];
+    for (var i = 0; i < _roundPlayers.length; i++) {
+      _scores[_roundPlayers[i]] = (_scores[_roundPlayers[i]] ?? 0) + points[i];
     }
     final record = RoundRecord(
       date: DateTime.now().toIso8601String(),
       word: _word!,
-      imposter: _players[_imposterIndex],
-      players: List<String>.from(_players),
+      imposter: _roundPlayers[_imposterIndex],
+      players: List<String>.from(_roundPlayers),
       voteTotals: totals,
       votes: Map<int, int>.from(_votes),
       points: points,
-      scores: _players.map((p) => _scores[p] ?? 0).toList(),
+      scores: _roundPlayers.map((p) => _scores[p] ?? 0).toList(),
       caught: caught,
     );
     setState(() {
@@ -1217,7 +1236,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       );
 
   Widget _reveal() {
-    final player = _players[_revealIndex];
+    final player = _roundPlayers[_revealIndex];
     final isImposter = _revealIndex == _imposterIndex;
     return Column(
       key: ValueKey('reveal'),
@@ -1395,7 +1414,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         ),
         SizedBox(height: 10),
         _button(
-          _revealIndex == _players.length - 1 ? 'FINISH REVEAL' : 'CONTINUE',
+          _revealIndex == _roundPlayers.length - 1 ? 'FINISH REVEAL' : 'CONTINUE',
           _revealed ? _nextReveal : null,
           main: true,
         ),
@@ -1412,7 +1431,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   Widget _passToNext() {
-    final nextPlayer = _players[_revealIndex + 1];
+    final nextPlayer = _roundPlayers[_revealIndex + 1];
     return Column(
       mainAxisSize: MainAxisSize.min,
       key: ValueKey('passToNext'),
@@ -1473,7 +1492,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       );
 
   Widget _voting() {
-    final voter = _players[_voterIndex];
+    final voter = _roundPlayers[_voterIndex];
     return Column(
       key: ValueKey('voting'),
       children: [
@@ -1500,7 +1519,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                 // Keep the lower choices partially below the fold like the previous
                 // voting layout; players can scroll to them without losing controls.
                 padding: EdgeInsets.only(top: 24, bottom: 6),
-                itemCount: _players.length,
+                itemCount: _roundPlayers.length,
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: narrow ? 1 : 2,
                   mainAxisExtent: compact ? 52 : 64,
@@ -1525,7 +1544,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                     ),
                   ),
                   child: Text(
-                    _players[i].toUpperCase(),
+                    _roundPlayers[i].toUpperCase(),
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -1537,7 +1556,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           ),
         ),
         _button(
-          _voterIndex == _players.length - 1
+          _voterIndex == _roundPlayers.length - 1
               ? 'LOCK VOTE & SHOW SUMMARY'
               : 'CONFIRM & PASS PHONE',
           _confirmVote,
@@ -1588,7 +1607,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           ],
         ),
         SizedBox(height: 10),
-        Text("${_players[_voterIndex]}'s vote has been recorded.", textAlign: TextAlign.center, style: TextStyle(color: palette.muted, fontSize: 16)),
+        Text("${_roundPlayers[_voterIndex]}'s vote has been recorded.", textAlign: TextAlign.center, style: TextStyle(color: palette.muted, fontSize: 16)),
         SizedBox(height: 18),
         Expanded(
           child: SingleChildScrollView(
@@ -1620,8 +1639,8 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(_players[entry.key], style: TextStyle(fontWeight: FontWeight.w800)),
-                              Text('Voted for ${_players[entry.value]}', style: TextStyle(color: palette.muted, fontSize: 13)),
+                              Text(_roundPlayers[entry.key], style: TextStyle(fontWeight: FontWeight.w800)),
+                              Text('Voted for ${_roundPlayers[entry.value]}', style: TextStyle(color: palette.muted, fontSize: 13)),
                             ],
                           ),
                         ),
@@ -1642,8 +1661,8 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
               SizedBox(height: 8),
               Text('PASS TO THE NEXT PLAYER', textAlign: TextAlign.center, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
               SizedBox(height: 8),
-              Text('Hand the phone to ${_players[nextVoterIndex]}. Make sure they are ready before continuing.', textAlign: TextAlign.center, style: TextStyle(color: palette.muted, fontSize: 15, height: 1.4)),
-              _button('PASS TO ${_players[nextVoterIndex].toUpperCase()}', _passAfterVote, main: true, compact: true),
+              Text('Hand the phone to ${_roundPlayers[nextVoterIndex]}. Make sure they are ready before continuing.', textAlign: TextAlign.center, style: TextStyle(color: palette.muted, fontSize: 15, height: 1.4)),
+              _button('PASS TO ${_roundPlayers[nextVoterIndex].toUpperCase()}', _passAfterVote, main: true, compact: true),
             ],
           ),
           padding: EdgeInsets.all(16),
@@ -1661,10 +1680,10 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       children: [
         Text('VOTE SUMMARY', style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900)),
         SizedBox(height: 14),
-        Expanded(child: SingleChildScrollView(child: _panel(Column(children: List.generate(_players.length, (i) => Padding(
+        Expanded(child: SingleChildScrollView(child: _panel(Column(children: List.generate(_roundPlayers.length, (i) => Padding(
           padding: EdgeInsets.symmetric(vertical: 9),
           child: Row(children: [
-            SizedBox(width: 100, child: Text(_players[i], overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700))),
+            SizedBox(width: 100, child: Text(_roundPlayers[i], overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700))),
             Expanded(child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(value: maxVotes == 0 ? 0 : totals[i] / maxVotes, minHeight: 12, backgroundColor: PaletteScope.of(context).palette.card2, color: leaders.contains(i) ? PaletteScope.of(context).palette.primary : PaletteScope.of(context).palette.accent),
@@ -1673,7 +1692,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
             SizedBox(width: 20, child: Text('${totals[i]}')),
           ]),
         )))))),
-        Text(leaders.length > 1 ? 'Tie detected — nobody has a sole top vote.' : 'Top vote: ${_players[leaders.first]}', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
+        Text(leaders.length > 1 ? 'Tie detected — nobody has a sole top vote.' : 'Top vote: ${_roundPlayers[leaders.first]}', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
         _button('REVEAL RESULTS', _finishRound, main: true),
       ],
     );
@@ -1871,6 +1890,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         if (!didPop) _handleBack();
       },
       child: Scaffold(
+      resizeToAvoidBottomInset: false,
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: RadialGradient(
