@@ -132,17 +132,19 @@ void main() {
     expect(tester.widget<TextField>(find.byKey(const ValueKey('player-3'))).controller!.text, 'Dana');
   });
 
-  testWidgets('malformed history records are skipped without hiding valid records', (tester) async {
+  testWidgets('malformed legacy and match history records are skipped safely', (tester) async {
     SharedPreferences.setMockInitialValues({
       'imposter_history_v1': '[{"broken":true}]',
+      'imposter_matches_v2': '[{"broken":true}]',
       'imposter_scores_v1': '{"Alice":7,"invalid":"score"}',
     });
     await tester.pumpWidget(const ImposterApp());
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('HISTORY'));
+    await tester.tap(find.byKey(const ValueKey('history-button')));
     await tester.pumpAndSettle();
     expect(find.text('NO MATCHES YET'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
   testWidgets('history is opened from the circular history control', (tester) async {
     SharedPreferences.setMockInitialValues({});
