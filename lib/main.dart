@@ -975,10 +975,13 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   Widget _menu() => LayoutBuilder(
-        builder: (context, constraints) => Column(
+        builder: (context, constraints) {
+          final compact = constraints.maxHeight < 560;
+          return Column(
           children: [
             _historyButton(),
-            _heading('IMPOSTER', subtitle: 'ONE WORD. ONE FAKE. FIND THEM.'),
+            if (!compact) _heading('IMPOSTER', subtitle: 'ONE WORD. ONE FAKE. FIND THEM.')
+            else const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Text('IMPOSTER', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900, letterSpacing: 2))),
             _themeButton(),
             SizedBox(height: 4),
             Expanded(
@@ -1032,11 +1035,12 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                 padding: EdgeInsets.all(14),
               ),
             ),
-            _button('+ ADD PLAYER', _players.length < 10 ? _addPlayer : null),
-            _button('PLAY', _startRound, main: true),
-            Padding(padding: EdgeInsets.only(top: 10), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: PaletteScope.of(context).palette.muted))),
+            _button('+ ADD PLAYER', _players.length < 10 ? _addPlayer : null, compact: compact),
+            _button('PLAY', _startRound, main: true, compact: compact),
+            if (!compact) Padding(padding: EdgeInsets.only(top: 10), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: PaletteScope.of(context).palette.muted))),
           ],
-        ),
+        );
+        },
       );
 
   Widget _reveal() {
@@ -1669,7 +1673,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       case Phase.history:
         body = _historyPage();
       case Phase.historyDetail:
-        body = SingleChildScrollView(child: _historyDetail());
+        body = _historyDetail();
     }
     return PopScope(
       canPop: false,
