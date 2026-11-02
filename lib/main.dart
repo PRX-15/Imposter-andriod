@@ -1627,7 +1627,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                   ])),
                   const SizedBox(height: 8),
                   Text('VOTING', style: TextStyle(fontWeight: FontWeight.w900, color: PaletteScope.of(context).palette.muted)),
-                  ...round.votes.entries.toList()..sort((a,b)=>a.key.compareTo(b.key)).map((entry) => Text('${round.players[entry.key]} voted for ${round.players[entry.value]}')),
+                  ...(round.votes.entries.toList()..sort((a,b)=>a.key.compareTo(b.key))).map((entry) => Text('${round.players[entry.key]} voted for ${round.players[entry.value]}')),
                 ])),
               );
             }),
