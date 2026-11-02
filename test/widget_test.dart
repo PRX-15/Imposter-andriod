@@ -144,4 +144,52 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('NO MATCHES YET'), findsOneWidget);
   });
+  testWidgets('history is opened from the circular history control', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('history-button')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('history-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('HISTORY'), findsOneWidget);
+  });
+
+  testWidgets('unfinished match recovery offers exactly two actions', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'imposter_unfinished_v2': '{"startedAt":"2026-11-02T10:00:00.000","players":["Alice","Bob","Charlie"],"scores":{"Alice":3,"Bob":1,"Charlie":0},"roundNumber":1,"rounds":[]}',
+    });
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.text('UNFINISHED MATCH'), findsOneWidget);
+    expect(find.text('RESUME'), findsOneWidget);
+    expect(find.text('BACK (MAIN MENU)'), findsOneWidget);
+    expect(find.byType(TextButton).evaluate().where((e) {
+      final button = e.widget as TextButton;
+      return button.onPressed != null;
+    }).length, 2);
+    await tester.tap(find.text('RESUME'));
+    await tester.pumpAndSettle();
+    expect(find.text('UNFINISHED MATCH'), findsNothing);
+  });
+
+  testWidgets('menu adapts when the keyboard reduces available height', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('player-0')), 'Alice');
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('PLAY'), findsOneWidget);
+  });
+
 }
