@@ -194,4 +194,55 @@ void main() {
     expect(find.text('PLAY'), findsOneWidget);
   });
 
+  testWidgets('Pop Party selects the bright palette and colourful player fields', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('COLOURS'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pop Party'));
+    await tester.pumpAndSettle();
+
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.theme!.brightness, Brightness.light);
+    expect(find.textContaining('COLOURS · Pop Party'), findsOneWidget);
+
+    final firstField = tester.widget<TextField>(find.byKey(const ValueKey('player-0')));
+    expect(firstField.style!.color, const Color(0xFF303544));
+    expect(firstField.style!.fontSize, 20);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('player text field keeps focus while keyboard insets animate', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    final player = find.byKey(const ValueKey('player-0'));
+    await tester.tap(player);
+    await tester.showKeyboard(player);
+    await tester.pump();
+
+    final field = tester.widget<TextField>(player);
+    expect(field.focusNode!.hasFocus, isTrue);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(player).focusNode!.hasFocus, isTrue);
+
+    await tester.enterText(player, 'Alice');
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(player).controller!.text, 'Alice');
+    expect(tester.takeException(), isNull);
+  });
+
 }
