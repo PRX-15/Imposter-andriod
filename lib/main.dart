@@ -321,7 +321,6 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   MatchRecord? _selectedMatch;
   String? _matchStartedAt;
   int _roundNumber = 0;
-  bool _recoveryChecked = false;
   Phase _phase = Phase.menu;
   int _revealIndex = 0;
   int _voterIndex = 0;
@@ -457,7 +456,6 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           _currentRounds.clear();
         }
       }
-      _recoveryChecked = true;
     });
     // If the history write succeeded but the app was killed before the
     // recovery key was removed, treat that recovery record as already complete.
