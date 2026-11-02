@@ -36,11 +36,18 @@ flutter test
 flutter run
 ```
 
-## Game scoring
+## Match and round scoring
 
-- Each non-Imposter voter gets **+1** for correctly voting for the Imposter and **−1** otherwise.
-- If the group fails to uniquely identify the Imposter (including a tie), the Imposter gets **+2**.
-- Cumulative totals are shown on the results screen.
+A match can contain multiple rounds. **PLAY AGAIN** continues the current match with the same players and cumulative scores; **MAIN MENU** completes and archives that match. Completed matches are stored separately from an unfinished match, which can be resumed after an app restart.
+
+- Imposter escapes a unique top-vote result: **+2**.
+- Imposter is the unique highest-vote player: **−1**.
+- Each non-Imposter gets **+1** for voting for the Imposter, or **−1** for an incorrect vote.
+- If every non-Imposter votes for the Imposter, each non-Imposter receives **+1 additional bonus point**.
+- A tie for the highest vote count means the Imposter escapes.
+- Match history contains completed matches and their round-by-round word, imposter, votes, catch result, points and cumulative scores.
+
+All match recovery and history data is stored locally with SharedPreferences; gameplay remains offline.
 
 ## Migration note
 
