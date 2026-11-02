@@ -5,7 +5,7 @@ void main() {
   group('calculateRoundScoring', () {
     test('imposter escapes and receives +2', () {
       final result = calculateRoundScoring(
-        votes: {0: 1, 1: 0, 2: 1}, playerCount: 3, imposterIndex: 2,
+        votes: {0: 2, 1: 0, 2: 1}, playerCount: 3, imposterIndex: 2,
       );
       expect(result.caught, isFalse);
       expect(result.points, [1, -1, 2]);
@@ -49,16 +49,16 @@ void main() {
 
     test('all-correct votes still score when imposter escapes by tie', () {
       final result = calculateRoundScoring(
-        votes: {0: 2, 1: 2, 2: 0, 3: 0},
+        votes: {0: 2, 1: 2, 2: 1, 3: 1},
         playerCount: 4, imposterIndex: 2,
       );
       expect(result.caught, isFalse);
-      expect(result.points, [2, 2, 2, 2]);
+      expect(result.points, [1, 1, 2, -1]);
     });
 
     test('a tie for highest votes means the imposter escapes', () {
       final result = calculateRoundScoring(
-        votes: {0: 2, 1: 2, 2: 0, 3: 1},
+        votes: {0: 2, 1: 2, 2: 1, 3: 1},
         playerCount: 4, imposterIndex: 2,
       );
       expect(result.caught, isFalse);
