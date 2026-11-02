@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:imposter_android/main.dart';
@@ -132,16 +133,160 @@ void main() {
     expect(tester.widget<TextField>(find.byKey(const ValueKey('player-3'))).controller!.text, 'Dana');
   });
 
-  testWidgets('malformed history records are skipped without hiding valid records', (tester) async {
+  testWidgets('malformed legacy and match history records are skipped safely', (tester) async {
     SharedPreferences.setMockInitialValues({
       'imposter_history_v1': '[{"broken":true}]',
+      'imposter_matches_v2': '[{"broken":true}]',
       'imposter_scores_v1': '{"Alice":7,"invalid":"score"}',
     });
     await tester.pumpWidget(const ImposterApp());
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('HISTORY'));
+    await tester.tap(find.byKey(const ValueKey('history-button')));
     await tester.pumpAndSettle();
     expect(find.text('NO MATCHES YET'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
+  testWidgets('history is opened from the circular history control', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('history-button')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('history-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('HISTORY'), findsOneWidget);
+  });
+
+  testWidgets('unfinished match recovery offers exactly two actions', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'imposter_unfinished_v2': '{"startedAt":"2026-11-02T10:00:00.000","players":["Alice","Bob","Charlie"],"scores":{"Alice":3,"Bob":1,"Charlie":0},"roundNumber":1,"rounds":[]}',
+    });
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.text('UNFINISHED MATCH'), findsOneWidget);
+    expect(find.text('RESUME'), findsOneWidget);
+    expect(find.text('BACK (MAIN MENU)'), findsOneWidget);
+    expect(find.byType(TextButton).evaluate().where((e) {
+      final button = e.widget as TextButton;
+      return button.onPressed != null;
+    }).length, 2);
+    await tester.tap(find.text('RESUME'));
+    await tester.pumpAndSettle();
+    expect(find.text('UNFINISHED MATCH'), findsNothing);
+  });
+
+  testWidgets('menu adapts when the keyboard reduces available height', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('player-0')), 'Alice');
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('PLAY'), findsOneWidget);
+  });
+
+  testWidgets('Pop Party selects the bright palette and colourful player fields', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('COLOURS'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pop Party'));
+    await tester.pumpAndSettle();
+
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.theme!.brightness, Brightness.light);
+    expect(find.textContaining('COLOURS · Pop Party'), findsOneWidget);
+
+    final firstField = tester.widget<TextField>(find.byKey(const ValueKey('player-0')));
+    expect(firstField.style!.color, const Color(0xFF303544));
+    expect(firstField.style!.fontSize, 20);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('player text field keeps focus while keyboard insets animate', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    final player = find.byKey(const ValueKey('player-0'));
+    await tester.tap(player);
+    await tester.showKeyboard(player);
+    await tester.pump();
+
+    final field = tester.widget<TextField>(player);
+    expect(field.focusNode!.hasFocus, isTrue);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(player).focusNode!.hasFocus, isTrue);
+
+    await tester.enterText(player, 'Alice');
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(player).controller!.text, 'Alice');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('match history cards are compact and open full round details', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'imposter_matches_v2': jsonEncode([
+        {
+          'startedAt': '2026-11-01T10:00:00.000',
+          'players': ['Alice', 'Bob', 'Charlie'],
+          'rounds': [
+            {
+              'date': '2026-11-01T10:05:00.000',
+              'word': {'word': 'Apple', 'word_hi': 'सेब', 'category': 'FRUITS', 'category_hi': 'फल'},
+              'imposter': 'Bob',
+              'players': ['Alice', 'Bob', 'Charlie'],
+              'voteTotals': [2, 0, 1],
+              'points': [2, -1, 1],
+              'scores': [2, -1, 1],
+              'caught': true,
+              'votes': {'0': 1, '1': 0, '2': 1}
+            }
+          ],
+          'finalScores': {'Alice': 2, 'Bob': -1, 'Charlie': 1}
+        }
+      ])
+    });
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('history-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('MATCH 1'), findsOneWidget);
+    expect(find.text('1 rounds · 3 players'), findsOneWidget);
+    expect(find.text('Alice: 2 pts'), findsNothing);
+
+    await tester.tap(find.text('MATCH 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('MATCH DETAILS'), findsOneWidget);
+    expect(find.text('FINAL SCOREBOARD'), findsOneWidget);
+    expect(find.text('Apple · FRUITS'), findsOneWidget);
+    expect(find.text('Imposter: Bob · Caught'), findsOneWidget);
+    expect(find.text('Alice voted for Bob'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
 }

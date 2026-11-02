@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'game_scoring.dart';
 
 void main() => runApp(const ImposterApp());
 
@@ -36,7 +37,7 @@ const List<GamePalette> gamePalettes = [
   GamePalette(name: 'Emerald', background: Color(0xFF06130D), card: Color(0xFF132C20), card2: Color(0xFF1D4430), accent: Color(0xFF57E39A), primary: Color(0xFF19B96C), muted: Color(0xFFB0E5C7)),
   GamePalette(name: 'Sunset', background: Color(0xFF1B0B08), card: Color(0xFF38201A), card2: Color(0xFF542D22), accent: Color(0xFFFFB15C), primary: Color(0xFFFF5C49), muted: Color(0xFFFFD2B7)),
   GamePalette(name: 'Rose', background: Color(0xFF190710), card: Color(0xFF351324), card2: Color(0xFF501A34), accent: Color(0xFFFF75B5), primary: Color(0xFFE92F78), muted: Color(0xFFF1B8D4)),
-  GamePalette(name: 'Rainbow Party', background: Color(0xFF17072B), card: Color(0xFF32104D), card2: Color(0xFF4A176B), accent: Color(0xFFFFE45E), primary: Color(0xFFFF4F9A), muted: Color(0xFFE9C9FF)),
+  GamePalette(name: 'Pop Party', background: Color(0xFFEAF6FF), card: Color(0xFFFFFFFF), card2: Color(0xFFDDEFFC), accent: Color(0xFF42477F), primary: Color(0xFF00BBDD), muted: Color(0xFF46506A)),
 ];
 
 const Color good = Color(0xFF59D968);
@@ -196,6 +197,7 @@ class RoundRecord {
     required this.points,
     required this.scores,
     required this.caught,
+    this.votes = const {},
   });
 
   final String date;
@@ -206,6 +208,7 @@ class RoundRecord {
   final List<int> points;
   final List<int> scores;
   final bool caught;
+  final Map<int, int> votes;
   String get category => word.category;
 
   Map<String, dynamic> toJson() => {
@@ -217,6 +220,7 @@ class RoundRecord {
         'points': points,
         'scores': scores,
         'caught': caught,
+        'votes': votes.map((key, value) => MapEntry(key.toString(), value)),
       };
 
   factory RoundRecord.fromJson(Map<String, dynamic> j) => RoundRecord(
@@ -228,7 +232,36 @@ class RoundRecord {
         points: List<int>.from(j['points'] as List? ?? const []),
         scores: List<int>.from(j['scores'] as List? ?? const []),
         caught: j['caught'] as bool? ?? false,
+        votes: (j['votes'] as Map? ?? const {}).map((key, value) => MapEntry(int.parse(key.toString()), (value as num).toInt())),
       );
+}
+
+
+class MatchRecord {
+  MatchRecord({
+    required this.startedAt,
+    required this.players,
+    required this.rounds,
+    required this.finalScores,
+  });
+  final String startedAt;
+  final List<String> players;
+  final List<RoundRecord> rounds;
+  final Map<String, int> finalScores;
+  Map<String, dynamic> toJson() => {
+    'startedAt': startedAt,
+    'players': players,
+    'rounds': rounds.map((round) => round.toJson()).toList(),
+    'finalScores': finalScores,
+  };
+  factory MatchRecord.fromJson(Map<String, dynamic> json) => MatchRecord(
+    startedAt: json['startedAt'] as String? ?? '',
+    players: List<String>.from(json['players'] as List? ?? const []),
+    rounds: (json['rounds'] as List? ?? const []).whereType<Map>()
+      .map((round) => RoundRecord.fromJson(Map<String, dynamic>.from(round))).toList(),
+    finalScores: Map<String, int>.from((json['finalScores'] as Map? ?? const {})
+      .map((key, value) => MapEntry(key.toString(), (value as num).toInt()))),
+  );
 }
 
 class ImposterApp extends StatefulWidget {
@@ -251,9 +284,11 @@ class _ImposterAppState extends State<ImposterApp> {
     curve: Curves.easeInOutCubic,
     builder: (context, palette, _) {
       final theme = ThemeData(
-        brightness: Brightness.dark,
+        brightness: _paletteIndex == 5 ? Brightness.light : Brightness.dark,
         scaffoldBackgroundColor: palette.background,
-        colorScheme: ColorScheme.dark(primary: palette.primary, secondary: palette.accent, surface: palette.card),
+        colorScheme: _paletteIndex == 5
+            ? ColorScheme.light(primary: palette.primary, secondary: palette.accent, surface: palette.card, onSurface: const Color(0xFF303544))
+            : ColorScheme.dark(primary: palette.primary, secondary: palette.accent, surface: palette.card),
         fontFamily: 'Roboto',
         useMaterial3: true,
       );
@@ -335,12 +370,17 @@ class GameHome extends StatefulWidget {
 class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   final Random _random = Random();
   final List<TextEditingController> _controllers = [];
+  final List<FocusNode> _playerFocusNodes = [];
   final List<String> _players = ['', '', ''];
   final List<int> _playerIds = [0, 1, 2];
   int _nextPlayerId = 3;
   final Map<int, int> _votes = {};
   final Map<String, int> _scores = {};
-  final List<RoundRecord> _history = [];
+  final List<MatchRecord> _history = [];
+  final List<RoundRecord> _currentRounds = [];
+  MatchRecord? _selectedMatch;
+  String? _matchStartedAt;
+  int _roundNumber = 0;
   Phase _phase = Phase.menu;
   int _revealIndex = 0;
   int _voterIndex = 0;
@@ -377,6 +417,9 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     for (final c in _controllers) {
       c.dispose();
     }
+    for (final focusNode in _playerFocusNodes) {
+      focusNode.dispose();
+    }
     _curtainController.dispose();
     super.dispose();
   }
@@ -385,8 +428,14 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     while (_controllers.length < _players.length) {
       _controllers.add(TextEditingController(text: _players[_controllers.length]));
     }
+    while (_playerFocusNodes.length < _players.length) {
+      _playerFocusNodes.add(FocusNode());
+    }
     while (_controllers.length > _players.length) {
       _controllers.removeLast().dispose();
+    }
+    while (_playerFocusNodes.length > _players.length) {
+      _playerFocusNodes.removeLast().dispose();
     }
     for (var i = 0; i < _players.length; i++) {
       if (_controllers[i].text != _players[i]) {
@@ -406,44 +455,179 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
 
   Future<void> _loadHistory() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('imposter_history_v1');
-    final scoreRaw = prefs.getString('imposter_scores_v1');
+    final matchRaw = prefs.getString('imposter_matches_v2');
+    final legacyRaw = prefs.getString('imposter_history_v1');
+    final unfinishedRaw = prefs.getString('imposter_unfinished_v2');
     if (!mounted) return;
     setState(() {
-      if (raw != null) {
+      _history.clear();
+      if (matchRaw != null) {
         try {
-          final decoded = jsonDecode(raw);
+          final decoded = jsonDecode(matchRaw);
           if (decoded is List) {
-            _history
-              ..clear()
-              ..addAll(decoded.whereType<Map>().map((entry) {
-                try {
-                  return RoundRecord.fromJson(Map<String, dynamic>.from(entry));
-                } catch (_) {
-                  return null;
-                }
-              }).whereType<RoundRecord>().where(_isValidRecord));
+            for (final item in decoded.whereType<Map>()) {
+              try {
+                final match = MatchRecord.fromJson(Map<String, dynamic>.from(item));
+                if (match.rounds.isNotEmpty) _history.add(match);
+              } catch (_) {}
+            }
           }
-        } catch (_) {
-          _history.clear();
-        }
-      }
-      if (scoreRaw != null) {
+        } catch (_) {}
+      } else if (legacyRaw != null) {
+        // One legacy round becomes one completed match; no old round data is lost.
         try {
-          final decoded = jsonDecode(scoreRaw);
-          if (decoded is Map) {
-            _scores
-              ..clear()
-              ..addAll(Map<String, int>.fromEntries(decoded.entries
-                  .where((entry) => entry.key is String && entry.value is num)
-                  .map((entry) => MapEntry(
-                      entry.key as String, (entry.value as num).toInt()))));
+          final decoded = jsonDecode(legacyRaw);
+          if (decoded is List) {
+            for (final item in decoded.whereType<Map>()) {
+              try {
+                final round = RoundRecord.fromJson(Map<String, dynamic>.from(item));
+                if (_isValidRecord(round)) {
+                  _history.add(MatchRecord(
+                    startedAt: round.date,
+                    players: round.players,
+                    rounds: [round],
+                    finalScores: {for (var i = 0; i < round.players.length; i++) round.players[i]: round.scores[i]},
+                  ));
+                }
+              } catch (_) {}
+            }
           }
+        } catch (_) {}
+      }
+      if (unfinishedRaw != null) {
+        try {
+          final data = Map<String, dynamic>.from(jsonDecode(unfinishedRaw) as Map);
+          _players
+            ..clear()
+            ..addAll(List<String>.from(data['players'] as List? ?? const []));
+          if (_players.length < 3 || _players.length > 10) {
+            _players
+              ..clear()
+              ..addAll(['', '', '']);
+          }
+          _playerIds
+            ..clear()
+            ..addAll(List<int>.generate(_players.length, (index) => index));
+          _nextPlayerId = _players.length;
+          _scores
+            ..clear()
+            ..addAll(Map<String, int>.from((data['scores'] as Map? ?? const {})
+              .map((key, value) => MapEntry(key.toString(), (value as num).toInt()))));
+          _currentRounds
+            ..clear()
+            ..addAll((data['rounds'] as List? ?? const []).whereType<Map>()
+              .map((item) => RoundRecord.fromJson(Map<String, dynamic>.from(item))));
+          _matchStartedAt = data['startedAt'] as String?;
+          _roundNumber = _currentRounds.length;
+          _syncControllers();
         } catch (_) {
-          _scores.clear();
+          _matchStartedAt = null;
+          _currentRounds.clear();
         }
       }
     });
+    // If the history write succeeded but the app was killed before the
+    // recovery key was removed, treat that recovery record as already complete.
+    if (_matchStartedAt != null &&
+        _history.any((match) => match.startedAt == _matchStartedAt)) {
+      await prefs.remove('imposter_unfinished_v2');
+      _matchStartedAt = null;
+      _currentRounds.clear();
+    } else if (unfinishedRaw != null && _matchStartedAt != null && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showResumeDialog();
+      });
+    }
+    if (matchRaw == null && legacyRaw != null) await _persistHistory();
+  }
+
+  void _showResumeDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: PaletteScope.of(context).palette.card,
+        title: const Text('UNFINISHED MATCH'),
+        content: const Text('An unfinished match was found. Would you like to continue it?'),
+        actions: [
+          TextButton(
+            key: const ValueKey('resume-match'),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('RESUME'),
+          ),
+          TextButton(
+            key: const ValueKey('discard-match'),
+            onPressed: () async {
+              await _discardUnfinished();
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            },
+            child: const Text('BACK (MAIN MENU)'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _discardUnfinished() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('imposter_unfinished_v2');
+    if (!mounted) return;
+    setState(() {
+      _matchStartedAt = null;
+      _roundNumber = 0;
+      _currentRounds.clear();
+      _scores.clear();
+      _players
+        ..clear()
+        ..addAll(['', '', '']);
+      _playerIds
+        ..clear()
+        ..addAll([0, 1, 2]);
+      _nextPlayerId = 3;
+      _syncControllers();
+      _phase = Phase.menu;
+    });
+  }
+
+  Future<void> _persistHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('imposter_matches_v2', jsonEncode(_history.map((e) => e.toJson()).toList()));
+  }
+
+  Future<void> _persistUnfinished() async {
+    if (_matchStartedAt == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('imposter_unfinished_v2', jsonEncode({
+      'startedAt': _matchStartedAt,
+      'players': _players,
+      'scores': _scores,
+      'roundNumber': _roundNumber,
+      'rounds': _currentRounds.map((round) => round.toJson()).toList(),
+    }));
+  }
+
+  Future<void> _completeMatch() async {
+    if (_matchStartedAt == null || _currentRounds.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('imposter_unfinished_v2');
+      if (mounted) setState(() => _matchStartedAt = null);
+      return;
+    }
+    final match = MatchRecord(
+      startedAt: _matchStartedAt!,
+      players: List<String>.from(_players),
+      rounds: List<RoundRecord>.from(_currentRounds),
+      finalScores: Map<String, int>.from(_scores),
+    );
+    setState(() {
+      _history.insert(0, match);
+      _matchStartedAt = null;
+      _currentRounds.clear();
+      _roundNumber = 0;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('imposter_matches_v2', jsonEncode(_history.map((e) => e.toJson()).toList()));
+    await prefs.remove('imposter_unfinished_v2');
   }
 
   bool _isValidRecord(RoundRecord record) {
@@ -456,11 +640,6 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         record.scores.length == count;
   }
 
-  Future<void> _persist() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('imposter_history_v1', jsonEncode(_history.map((e) => e.toJson()).toList()));
-    await prefs.setString('imposter_scores_v1', jsonEncode(_scores));
-  }
 
   void _go(Phase p) {
     _revealAutoHideToken++;
@@ -544,22 +723,33 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       _players.removeAt(i);
       _playerIds.removeAt(i);
       _controllers.removeAt(i).dispose();
+      final removedFocusNode = _playerFocusNodes.removeAt(i);
+      removedFocusNode.unfocus();
+      removedFocusNode.dispose();
     });
   }
 
-  void _startRound() {
+  Future<void> _startRound() async {
     if (_busy ||
         (_phase != Phase.menu && _phase != Phase.results) ||
         _players.length < 3 ||
         _players.length > 10) {
       return;
     }
+    FocusManager.instance.primaryFocus?.unfocus();
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
     setState(() {
       _busy = true;
-      for (var i = 0; i < _players.length; i++) {
-        _players[i] = _controllers[i].text.trim().isEmpty ? 'Player ${i + 1}' : _controllers[i].text.trim();
+      if (_matchStartedAt == null) {
+        _scores.clear();
+        _currentRounds.clear();
+        _roundNumber = 0;
       }
-      _syncControllers();
+      for (var i = 0; i < _players.length; i++) {
+        final editedName = _controllers[i].text.trim();
+        _players[i] = editedName.isEmpty ? 'Player ${i + 1}' : editedName;
+      }
       final choices = wordDatabase.where((w) => w.word != _lastWord).toList();
       _word = choices[_random.nextInt(choices.length)];
       _lastWord = _word!.word;
@@ -573,10 +763,14 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       for (final p in _players) {
         _scores.putIfAbsent(p, () => 0);
       }
+      _matchStartedAt ??= DateTime.now().toIso8601String();
+      _roundNumber++;
       _phase = Phase.reveal;
     });
     _curtainController.reset();
     setState(() => _busy = false);
+    _syncControllers();
+    await _persistUnfinished();
   }
 
   void _revealRole() {
@@ -673,14 +867,13 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     }
     _roundAwarded = true;
     final totals = _voteTotals();
-    final leaders = _leaders(totals);
-    final caught = leaders.length == 1 && leaders.first == _imposterIndex;
-    final points = List<int>.filled(_players.length, 0);
-    if (!caught) points[_imposterIndex] = 2;
-    for (final entry in _votes.entries) {
-      if (entry.key == _imposterIndex) continue;
-      points[entry.key] = entry.value == _imposterIndex ? 1 : -1;
-    }
+    final scoring = calculateRoundScoring(
+      votes: _votes,
+      playerCount: _players.length,
+      imposterIndex: _imposterIndex,
+    );
+    final caught = scoring.caught;
+    final points = scoring.points;
     for (var i = 0; i < _players.length; i++) {
       _scores[_players[i]] = (_scores[_players[i]] ?? 0) + points[i];
     }
@@ -690,24 +883,25 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       imposter: _players[_imposterIndex],
       players: List<String>.from(_players),
       voteTotals: totals,
+      votes: Map<int, int>.from(_votes),
       points: points,
       scores: _players.map((p) => _scores[p] ?? 0).toList(),
       caught: caught,
     );
     setState(() {
-      _history.insert(0, record);
+      _currentRounds.add(record);
       _selectedHistory = record;
       _phase = Phase.results;
     });
-    await _persist();
+    await _persistUnfinished();
   }
 
   Future<void> _clearHistory() async {
     setState(() => _history.clear());
-    await _persist();
+    await _persistHistory();
   }
 
-  void _playAgain() => _startRound();
+  Future<void> _playAgain() async => _startRound();
 
   Widget _page(Widget child) => SafeArea(
         child: Center(
@@ -744,16 +938,21 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         child: child,
       );
 
-  Widget _button(String label, VoidCallback? onPressed, {bool main = false, bool compact = false}) => SizedBox(
+  Widget _button(String label, VoidCallback? onPressed, {bool main = false, bool compact = false}) {
+    final scope = PaletteScope.of(context);
+    final partyPalette = scope.selectedIndex == 5;
+    final foreground = partyPalette ? const Color(0xFF303544) : Colors.white;
+    return SizedBox(
         width: double.infinity,
         child: Padding(
           padding: EdgeInsets.only(top: compact ? 8 : 12),
           child: FilledButton(
             onPressed: onPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: main ? PaletteScope.of(context).palette.primary : PaletteScope.of(context).palette.card2,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: PaletteScope.of(context).palette.card2.withValues(alpha: .5),
+              backgroundColor: main ? scope.palette.primary : scope.palette.card2,
+              foregroundColor: foreground,
+              disabledForegroundColor: foreground.withValues(alpha: .45),
+              disabledBackgroundColor: scope.palette.card2.withValues(alpha: .5),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(28),
                 side: BorderSide(color: main ? Color(0xFFFF6390) : PaletteScope.of(context).palette.accent),
@@ -765,6 +964,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           ),
         ),
       );
+  }
 
   Widget _heading(String title, {String? subtitle}) => Column(
         children: [
@@ -786,15 +986,18 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         ],
       );
 
-  Widget _nav() => Center(
-        child: Container(
-          margin: EdgeInsets.only(bottom: 14),
-          padding: EdgeInsets.all(3),
-          decoration: BoxDecoration(color: PaletteScope.of(context).palette.background.withValues(alpha: .86), border: Border.all(color: PaletteScope.of(context).palette.muted.withValues(alpha: .6)), borderRadius: BorderRadius.circular(28)),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            TextButton(onPressed: () => _go(Phase.menu), child: Text('GAME')),
-            TextButton(onPressed: () => _go(Phase.history), child: Text('HISTORY')),
-          ]),
+  Widget _historyButton() => Align(
+        alignment: Alignment.centerRight,
+        child: IconButton.filledTonal(
+          key: const ValueKey('history-button'),
+          tooltip: 'History',
+          onPressed: () => _go(Phase.history),
+          icon: const Icon(Icons.history_rounded),
+          style: IconButton.styleFrom(
+            backgroundColor: PaletteScope.of(context).palette.card2,
+            foregroundColor: PaletteScope.of(context).palette.accent,
+            side: BorderSide(color: PaletteScope.of(context).palette.accent),
+          ),
         ),
       );
 
@@ -868,68 +1071,149 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   Widget _menu() => LayoutBuilder(
-        builder: (context, constraints) => Column(
-          children: [
-            _nav(),
-            _heading('IMPOSTER', subtitle: 'ONE WORD. ONE FAKE. FIND THEM.'),
-            _themeButton(),
-            SizedBox(height: 4),
-            Expanded(
-              child: _panel(
-                ListView.builder(
-                  key: ValueKey('player-list'),
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: EdgeInsets.zero,
-                  itemCount: _players.length,
-                  findChildIndexCallback: (key) {
-                    if (key is ValueKey<String> &&
-                        key.value.startsWith('player-row-')) {
-                      final id = int.tryParse(
-                        key.value.substring('player-row-'.length),
-                      );
-                      if (id != null) {
-                        final index = _playerIds.indexOf(id);
-                        return index < 0 ? null : index;
-                      }
-                    }
-                    return null;
-                  },
-                  itemBuilder: (context, i) => Padding(
-                    key: ValueKey('player-row-${_playerIds[i]}'),
-                    padding: EdgeInsets.only(bottom: 9),
-                    child: Row(children: [
-                      Icon(Icons.person, color: PaletteScope.of(context).palette.muted, size: 28),
-                      SizedBox(width: 8),
-                      Expanded(child: TextField(
-                        key: ValueKey('player-${_playerIds[i]}'),
-                        controller: _controllers[i],
-                        onChanged: (v) => _updatePlayerName(i, v),
-                        textCapitalization: TextCapitalization.words,
-                        decoration: InputDecoration(
-                          hintText: 'Enter player ${i + 1} name',
-                          filled: true,
-                          fillColor: PaletteScope.of(context).palette.card2,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 11),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
-                        ),
-                      )),
-                      if (_players.length > 3)
-                        IconButton(
-                          key: ValueKey('remove-player-${_playerIds[i]}'),
-                          onPressed: () => _removePlayer(i),
-                          icon: Icon(Icons.remove_circle, color: danger),
-                        ),
-                    ]),
+        builder: (context, constraints) {
+          final paletteScope = PaletteScope.of(context);
+          final partyPalette = paletteScope.selectedIndex == 5;
+          final compact = constraints.maxHeight < 560;
+          const partyPlayerColors = [
+            Color(0xFFFF625E),
+            Color(0xFF19B5D0),
+            Color(0xFF79D34A),
+            Color(0xFFFFC857),
+            Color(0xFFB88AEF),
+            Color(0xFFFF8EBA),
+            Color(0xFF68CBB4),
+            Color(0xFFFFA65E),
+            Color(0xFF78A8EE),
+            Color(0xFFB4D95A),
+          ];
+          final header = partyPalette
+              ? Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF32375F), Color(0xFF202646)],
+                    ),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x33242A50), blurRadius: 18, offset: Offset(0, 8)),
+                    ],
                   ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const Spacer(),
+                          const Text('IMPOSTER', style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                          const Spacer(),
+                          IconButton(
+                            tooltip: 'History',
+                            onPressed: () => _go(Phase.history),
+                            icon: const Icon(Icons.history_rounded, color: Colors.white),
+                            style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: .14)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Play with up to 10 friends! Give smart clues about your secret word without being too obvious. Discuss who the imposter could be and vote them out to win the game.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 15, height: 1.35, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _historyButton(),
+                    _heading('IMPOSTER', subtitle: 'ONE WORD. ONE FAKE. FIND THEM.'),
+                  ],
+                );
+          return Column(
+            children: [
+              header,
+              _themeButton(),
+              const SizedBox(height: 4),
+              Expanded(
+                child: _panel(
+                  ListView.builder(
+                    key: const ValueKey('player-list'),
+                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
+                    padding: EdgeInsets.zero,
+                    itemCount: _players.length,
+                    findChildIndexCallback: (key) {
+                      if (key is ValueKey<String> && key.value.startsWith('player-row-')) {
+                        final id = int.tryParse(key.value.substring('player-row-'.length));
+                        if (id != null) {
+                          final index = _playerIds.indexOf(id);
+                          return index < 0 ? null : index;
+                        }
+                      }
+                      return null;
+                    },
+                    itemBuilder: (context, i) {
+                      final rowColor = partyPlayerColors[i % partyPlayerColors.length];
+                      return Padding(
+                        key: ValueKey('player-row-${_playerIds[i]}'),
+                        padding: const EdgeInsets.only(bottom: 9),
+                        child: Container(
+                          padding: partyPalette ? const EdgeInsets.symmetric(horizontal: 10, vertical: 5) : EdgeInsets.zero,
+                          decoration: partyPalette ? BoxDecoration(
+                            color: rowColor,
+                            borderRadius: BorderRadius.circular(22),
+                            boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 7, offset: Offset(0, 3))],
+                          ) : null,
+                          child: Row(children: [
+                            Icon(partyPalette ? Icons.edit_rounded : Icons.person,
+                              color: partyPalette ? const Color(0xFF303544) : paletteScope.palette.muted, size: 27),
+                            const SizedBox(width: 8),
+                            Expanded(child: TextField(
+                              key: ValueKey('player-${_playerIds[i]}'),
+                              controller: _controllers[i],
+                              focusNode: _playerFocusNodes[i],
+                              onChanged: (v) => _updatePlayerName(i, v),
+                              readOnly: _matchStartedAt != null,
+                              textCapitalization: TextCapitalization.words,
+                              keyboardAppearance: partyPalette ? Brightness.light : Brightness.dark,
+                              scrollPadding: const EdgeInsets.only(bottom: 120),
+                              style: TextStyle(
+                                color: partyPalette ? const Color(0xFF303544) : Colors.white,
+                                fontSize: partyPalette ? 20 : 16,
+                                fontWeight: partyPalette ? FontWeight.w800 : FontWeight.w500,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Enter player ${i + 1} name',
+                                hintStyle: TextStyle(color: partyPalette ? const Color(0x99303544) : null),
+                                filled: !partyPalette,
+                                fillColor: paletteScope.palette.card2,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: partyPalette ? 15 : 11),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
+                              ),
+                            )),
+                            if (_players.length > 3)
+                              IconButton(
+                                key: ValueKey('remove-player-${_playerIds[i]}'),
+                                onPressed: _matchStartedAt == null ? () => _removePlayer(i) : null,
+                                icon: Icon(Icons.remove_circle, color: partyPalette ? const Color(0xFF303544) : danger),
+                              ),
+                          ]),
+                        ),
+                      );
+                    },
+                  ),
+                  padding: EdgeInsets.all(partyPalette ? 12 : 14),
                 ),
-                padding: EdgeInsets.all(14),
               ),
-            ),
-            _button('+ ADD PLAYER', _players.length < 10 ? _addPlayer : null),
-            _button('PLAY', _startRound, main: true),
-            Padding(padding: EdgeInsets.only(top: 10), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: PaletteScope.of(context).palette.muted))),
-          ],
-        ),
+              _button('+ ADD PLAYER', _matchStartedAt == null && _players.length < 10 ? _addPlayer : null, compact: compact),
+              _button('PLAY', _startRound, main: true, compact: compact),
+              if (!compact) Padding(padding: const EdgeInsets.only(top: 8), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: paletteScope.palette.muted))),
+            ],
+          );
+        },
       );
 
   Widget _reveal() {
@@ -1230,7 +1514,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                     backgroundColor: _selectedVote == i
                         ? PaletteScope.of(context).palette.primary
                         : PaletteScope.of(context).palette.card,
-                    foregroundColor: Colors.white,
+                    foregroundColor: PaletteScope.of(context).selectedIndex == 5 ? const Color(0xFF303544) : Colors.white,
                     side: BorderSide(
                       color: _selectedVote == i
                           ? Color(0xFFFF6390)
@@ -1400,7 +1684,8 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     return Column(
       key: ValueKey('results'),
       children: [
-        Text(record.caught ? 'IMPOSTER CAUGHT' : 'IMPOSTER NOT CAUGHT', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+        Text('ROUND $_roundNumber', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w800)),
+        Text(record.caught ? 'IMPOSTER CAUGHT' : 'IMPOSTER NOT CAUGHT', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: record.caught ? const Color(0xFF36C66B) : const Color(0xFFE34B55))),
         SizedBox(height: 10),
         _panel(
           Column(
@@ -1424,8 +1709,10 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
               key: ValueKey('results-player-list'),
               padding: EdgeInsets.zero,
               children: [
-                Text('IMPOSTER', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700)),
-                Text(record.imposter, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text('IMPOSTER', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700)),
+                  Text(record.imposter, textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                ])),
                 SizedBox(height: 8),
                 Divider(color: PaletteScope.of(context).palette.accent),
                 Text('SCOREBOARD', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w800)),
@@ -1433,7 +1720,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                   padding: EdgeInsets.symmetric(vertical: 4),
                   child: Row(children: [
                     Expanded(child: Text(record.players[i])),
-                    Text('${record.points[i] > 0 ? '+' : ''}${record.points[i]}', style: TextStyle(fontWeight: FontWeight.w900, color: record.points[i] > 0 ? good : record.points[i] < 0 ? danger : Colors.white)),
+                    Text('${record.points[i] > 0 ? '+' : ''}${record.points[i]}', style: TextStyle(fontWeight: FontWeight.w900, color: record.points[i] > 0 ? good : record.points[i] < 0 ? danger : (PaletteScope.of(context).selectedIndex == 5 ? const Color(0xFF303544) : Colors.white))),
                     SizedBox(width: 22),
                     SizedBox(width: 35, child: Text('${record.scores[i]}', textAlign: TextAlign.end, style: TextStyle(fontWeight: FontWeight.w900))),
                   ]),
@@ -1444,7 +1731,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           ),
         ),
         _button('PLAY AGAIN', _playAgain, main: true),
-        _button('MAIN MENU', () => _go(Phase.menu)),
+        _button('MAIN MENU', () async { await _completeMatch(); _go(Phase.menu); }),
       ],
     );
   }
@@ -1460,28 +1747,41 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
               ? Center(child: _panel(Column(mainAxisSize: MainAxisSize.min, children: [
                   Text('NO MATCHES YET', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
                   SizedBox(height: 5),
-                  Text('Finish a round and it will appear here.', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
+                  Text('Completed games will appear here.', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
                 ])))
               : ListView.separated(
                   itemCount: _history.length,
                   separatorBuilder: (_, __) => SizedBox(height: 9),
                   itemBuilder: (context, i) {
-                    final r = _history[i];
+                    final match = _history[i];
                     return _panel(InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () => setState(() {
-                        _selectedHistory = r;
+                        _selectedMatch = match;
                         _phase = Phase.historyDetail;
                       }),
                       child: Row(children: [
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(r.word.word, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-                          Text(r.word.category, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 12)),
-                        ])),
-                        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                          Text(r.caught ? 'CAUGHT' : 'ESCAPED', style: TextStyle(fontWeight: FontWeight.w800)),
-                          Text(_formatDate(r.date), style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 12)),
-                        ]),
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: PaletteScope.of(context).palette.card2,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.emoji_events_outlined, color: PaletteScope.of(context).palette.accent, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('MATCH ${_history.length - i}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                            Text('${match.rounds.length} rounds · ${match.players.length} players', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 12)),
+                          ],
+                        )),
+                        Text(_formatDate(match.startedAt), style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 11)),
+                        const SizedBox(width: 4),
+                        Icon(Icons.chevron_right_rounded, color: PaletteScope.of(context).palette.muted),
                       ]),
                     ));
                   },
@@ -1491,28 +1791,43 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       );
 
   Widget _historyDetail() {
-    final r = _selectedHistory!;
+    final match = _selectedMatch!;
     return Column(
-      mainAxisSize: MainAxisSize.min,
-      key: ValueKey('historyDetail'),
+      key: const ValueKey('historyDetail'),
       children: [
-        Text('ROUND HISTORY', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-        SizedBox(height: 14),
-        _panel(Column(children: [
-          Text(r.word.word, style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
-          Text(r.word.wordHi, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
-          Text(r.word.category, style: TextStyle(fontWeight: FontWeight.w800)),
-          Text(r.word.categoryHi, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
-          Divider(color: PaletteScope.of(context).palette.accent),
-          Text('Imposter: ${r.imposter}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-          Text(r.caught ? 'Caught' : 'Not caught', style: TextStyle(color: PaletteScope.of(context).palette.muted)),
-          SizedBox(height: 10),
-          ...List.generate(r.players.length, (i) => Row(children: [
-            Expanded(child: Text(r.players[i])),
-            Text('${r.voteTotals[i]} votes · ${r.points[i] > 0 ? '+' : ''}${r.points[i]} pts · total ${r.scores[i]}'),
-          ])),
-        ])),
-        SizedBox(height: 14),
+        Text('MATCH DETAILS', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+        Text('${match.rounds.length} rounds played', style: TextStyle(color: PaletteScope.of(context).palette.muted)),
+        Expanded(child: ListView(
+          children: [
+            _panel(Column(children: [
+              Text('FINAL SCOREBOARD', style: TextStyle(fontWeight: FontWeight.w900)),
+              ...match.players.map((player) => Row(children: [
+                Expanded(child: Text(player)),
+                Text('${match.finalScores[player] ?? 0} pts', style: TextStyle(fontWeight: FontWeight.w900)),
+              ])),
+            ])),
+            const SizedBox(height: 12),
+            ...List.generate(match.rounds.length, (index) {
+              final round = match.rounds[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _panel(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('ROUND ${index + 1}', style: TextStyle(color: PaletteScope.of(context).palette.accent, fontWeight: FontWeight.w900)),
+                  Text('${round.word.word} · ${round.word.category}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                  Text('Imposter: ${round.imposter} · ${round.caught ? 'Caught' : 'Escaped'}'),
+                  const Divider(),
+                  ...List.generate(round.players.length, (i) => Row(children: [
+                    Expanded(child: Text(round.players[i])),
+                    Text('${round.voteTotals[i]} votes · ${round.points[i] > 0 ? '+' : ''}${round.points[i]} pts · total ${round.scores[i]}'),
+                  ])),
+                  const SizedBox(height: 8),
+                  Text('VOTING', style: TextStyle(fontWeight: FontWeight.w900, color: PaletteScope.of(context).palette.muted)),
+                  ...(round.votes.entries.toList()..sort((a,b)=>a.key.compareTo(b.key))).map((entry) => Text('${round.players[entry.key]} voted for ${round.players[entry.value]}')),
+                ])),
+              );
+            }),
+          ],
+        )),
         _button('BACK TO HISTORY', () => _go(Phase.history)),
         _button('BACK TO GAME', () => _go(Phase.menu), main: true),
       ],
@@ -1548,7 +1863,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       case Phase.history:
         body = _historyPage();
       case Phase.historyDetail:
-        body = SingleChildScrollView(child: _historyDetail());
+        body = _historyDetail();
     }
     return PopScope(
       canPop: false,
