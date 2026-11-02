@@ -140,6 +140,7 @@ class RoundRecord {
     required this.points,
     required this.scores,
     required this.caught,
+    this.votes = const {},
   });
 
   final String date;
@@ -150,6 +151,7 @@ class RoundRecord {
   final List<int> points;
   final List<int> scores;
   final bool caught;
+  final Map<int, int> votes;
   String get category => word.category;
 
   Map<String, dynamic> toJson() => {
@@ -161,6 +163,7 @@ class RoundRecord {
         'points': points,
         'scores': scores,
         'caught': caught,
+        'votes': votes.map((key, value) => MapEntry(key.toString(), value)),
       };
 
   factory RoundRecord.fromJson(Map<String, dynamic> j) => RoundRecord(
@@ -172,7 +175,36 @@ class RoundRecord {
         points: List<int>.from(j['points'] as List? ?? const []),
         scores: List<int>.from(j['scores'] as List? ?? const []),
         caught: j['caught'] as bool? ?? false,
+        votes: (j['votes'] as Map? ?? const {}).map((key, value) => MapEntry(int.parse(key.toString()), (value as num).toInt())),
       );
+}
+
+
+class MatchRecord {
+  MatchRecord({
+    required this.startedAt,
+    required this.players,
+    required this.rounds,
+    required this.finalScores,
+  });
+  final String startedAt;
+  final List<String> players;
+  final List<RoundRecord> rounds;
+  final Map<String, int> finalScores;
+  Map<String, dynamic> toJson() => {
+    'startedAt': startedAt,
+    'players': players,
+    'rounds': rounds.map((round) => round.toJson()).toList(),
+    'finalScores': finalScores,
+  };
+  factory MatchRecord.fromJson(Map<String, dynamic> json) => MatchRecord(
+    startedAt: json['startedAt'] as String? ?? '',
+    players: List<String>.from(json['players'] as List? ?? const []),
+    rounds: (json['rounds'] as List? ?? const []).whereType<Map>()
+      .map((round) => RoundRecord.fromJson(Map<String, dynamic>.from(round))).toList(),
+    finalScores: Map<String, int>.from((json['finalScores'] as Map? ?? const {})
+      .map((key, value) => MapEntry(key.toString(), (value as num).toInt()))),
+  );
 }
 
 class ImposterApp extends StatefulWidget {
@@ -284,7 +316,12 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   int _nextPlayerId = 3;
   final Map<int, int> _votes = {};
   final Map<String, int> _scores = {};
-  final List<RoundRecord> _history = [];
+  final List<MatchRecord> _history = [];
+  final List<RoundRecord> _currentRounds = [];
+  MatchRecord? _selectedMatch;
+  String? _matchStartedAt;
+  int _roundNumber = 0;
+  bool _recoveryChecked = false;
   Phase _phase = Phase.menu;
   int _revealIndex = 0;
   int _voterIndex = 0;
@@ -350,44 +387,164 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
 
   Future<void> _loadHistory() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('imposter_history_v1');
-    final scoreRaw = prefs.getString('imposter_scores_v1');
+    final matchRaw = prefs.getString('imposter_matches_v2');
+    final legacyRaw = prefs.getString('imposter_history_v1');
+    final unfinishedRaw = prefs.getString('imposter_unfinished_v2');
     if (!mounted) return;
     setState(() {
-      if (raw != null) {
+      _history.clear();
+      if (matchRaw != null) {
         try {
-          final decoded = jsonDecode(raw);
+          final decoded = jsonDecode(matchRaw);
           if (decoded is List) {
-            _history
-              ..clear()
-              ..addAll(decoded.whereType<Map>().map((entry) {
-                try {
-                  return RoundRecord.fromJson(Map<String, dynamic>.from(entry));
-                } catch (_) {
-                  return null;
-                }
-              }).whereType<RoundRecord>().where(_isValidRecord));
+            for (final item in decoded.whereType<Map>()) {
+              try {
+                final match = MatchRecord.fromJson(Map<String, dynamic>.from(item));
+                if (match.rounds.isNotEmpty) _history.add(match);
+              } catch (_) {}
+            }
           }
-        } catch (_) {
-          _history.clear();
-        }
-      }
-      if (scoreRaw != null) {
+        } catch (_) {}
+      } else if (legacyRaw != null) {
+        // One legacy round becomes one completed match; no old round data is lost.
         try {
-          final decoded = jsonDecode(scoreRaw);
-          if (decoded is Map) {
-            _scores
-              ..clear()
-              ..addAll(Map<String, int>.fromEntries(decoded.entries
-                  .where((entry) => entry.key is String && entry.value is num)
-                  .map((entry) => MapEntry(
-                      entry.key as String, (entry.value as num).toInt()))));
+          final decoded = jsonDecode(legacyRaw);
+          if (decoded is List) {
+            for (final item in decoded.whereType<Map>()) {
+              try {
+                final round = RoundRecord.fromJson(Map<String, dynamic>.from(item));
+                if (_isValidRecord(round)) {
+                  _history.add(MatchRecord(
+                    startedAt: round.date,
+                    players: round.players,
+                    rounds: [round],
+                    finalScores: {for (var i = 0; i < round.players.length; i++) round.players[i]: round.scores[i]},
+                  ));
+                }
+              } catch (_) {}
+            }
           }
+        } catch (_) {}
+      }
+      if (unfinishedRaw != null) {
+        try {
+          final data = Map<String, dynamic>.from(jsonDecode(unfinishedRaw) as Map);
+          _players
+            ..clear()
+            ..addAll(List<String>.from(data['players'] as List? ?? const []));
+          _scores
+            ..clear()
+            ..addAll(Map<String, int>.from((data['scores'] as Map? ?? const {})
+              .map((key, value) => MapEntry(key.toString(), (value as num).toInt()))));
+          _currentRounds
+            ..clear()
+            ..addAll((data['rounds'] as List? ?? const []).whereType<Map>()
+              .map((item) => RoundRecord.fromJson(Map<String, dynamic>.from(item))));
+          _matchStartedAt = data['startedAt'] as String?;
+          _roundNumber = (data['roundNumber'] as num?)?.toInt() ?? _currentRounds.length;
+          _syncControllers();
         } catch (_) {
-          _scores.clear();
+          _matchStartedAt = null;
+          _currentRounds.clear();
         }
       }
+      _recoveryChecked = true;
     });
+    if (unfinishedRaw != null && _matchStartedAt != null && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showResumeDialog();
+      });
+    }
+    if (matchRaw == null && legacyRaw != null) await _persistHistory();
+  }
+
+  void _showResumeDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: PaletteScope.of(context).palette.card,
+        title: const Text('UNFINISHED MATCH'),
+        content: const Text('An unfinished match was found. Would you like to continue it?'),
+        actions: [
+          TextButton(
+            key: const ValueKey('resume-match'),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('RESUME'),
+          ),
+          TextButton(
+            key: const ValueKey('discard-match'),
+            onPressed: () async {
+              await _discardUnfinished();
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            },
+            child: const Text('BACK (MAIN MENU)'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _discardUnfinished() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('imposter_unfinished_v2');
+    if (!mounted) return;
+    setState(() {
+      _matchStartedAt = null;
+      _roundNumber = 0;
+      _currentRounds.clear();
+      _scores.clear();
+      _players
+        ..clear()
+        ..addAll(['', '', '']);
+      _playerIds
+        ..clear()
+        ..addAll([0, 1, 2]);
+      _nextPlayerId = 3;
+      _syncControllers();
+      _phase = Phase.menu;
+    });
+  }
+
+  Future<void> _persistHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('imposter_matches_v2', jsonEncode(_history.map((e) => e.toJson()).toList()));
+  }
+
+  Future<void> _persistUnfinished() async {
+    if (_matchStartedAt == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('imposter_unfinished_v2', jsonEncode({
+      'startedAt': _matchStartedAt,
+      'players': _players,
+      'scores': _scores,
+      'roundNumber': _roundNumber,
+      'rounds': _currentRounds.map((round) => round.toJson()).toList(),
+    }));
+  }
+
+  Future<void> _completeMatch() async {
+    if (_matchStartedAt == null || _currentRounds.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('imposter_unfinished_v2');
+      if (mounted) setState(() => _matchStartedAt = null);
+      return;
+    }
+    final match = MatchRecord(
+      startedAt: _matchStartedAt!,
+      players: List<String>.from(_players),
+      rounds: List<RoundRecord>.from(_currentRounds),
+      finalScores: Map<String, int>.from(_scores),
+    );
+    setState(() {
+      _history.insert(0, match);
+      _matchStartedAt = null;
+      _currentRounds.clear();
+      _roundNumber = 0;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('imposter_matches_v2', jsonEncode(_history.map((e) => e.toJson()).toList()));
+    await prefs.remove('imposter_unfinished_v2');
   }
 
   bool _isValidRecord(RoundRecord record) {
@@ -400,11 +557,6 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         record.scores.length == count;
   }
 
-  Future<void> _persist() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('imposter_history_v1', jsonEncode(_history.map((e) => e.toJson()).toList()));
-    await prefs.setString('imposter_scores_v1', jsonEncode(_scores));
-  }
 
   void _go(Phase p) {
     _revealAutoHideToken++;
@@ -517,10 +669,13 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       for (final p in _players) {
         _scores.putIfAbsent(p, () => 0);
       }
+      _matchStartedAt ??= DateTime.now().toIso8601String();
+      _roundNumber++;
       _phase = Phase.reveal;
     });
     _curtainController.reset();
     setState(() => _busy = false);
+    _persistUnfinished();
   }
 
   void _revealRole() {
@@ -633,21 +788,22 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       imposter: _players[_imposterIndex],
       players: List<String>.from(_players),
       voteTotals: totals,
+      votes: Map<int, int>.from(_votes),
       points: points,
       scores: _players.map((p) => _scores[p] ?? 0).toList(),
       caught: caught,
     );
     setState(() {
-      _history.insert(0, record);
+      _currentRounds.add(record);
       _selectedHistory = record;
       _phase = Phase.results;
     });
-    await _persist();
+    await _persistUnfinished();
   }
 
   Future<void> _clearHistory() async {
     setState(() => _history.clear());
-    await _persist();
+    await _persistHistory();
   }
 
   void _playAgain() => _startRound();
@@ -1390,7 +1546,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           ),
         ),
         _button('PLAY AGAIN', _playAgain, main: true),
-        _button('MAIN MENU', () => _go(Phase.menu)),
+        _button('MAIN MENU', () async { await _completeMatch(); _go(Phase.menu); }),
       ],
     );
   }
@@ -1412,22 +1568,20 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                   itemCount: _history.length,
                   separatorBuilder: (_, __) => SizedBox(height: 9),
                   itemBuilder: (context, i) {
-                    final r = _history[i];
+                    final match = _history[i];
                     return _panel(InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () => setState(() {
-                        _selectedHistory = r;
+                        _selectedMatch = match;
                         _phase = Phase.historyDetail;
                       }),
                       child: Row(children: [
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(r.word.word, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-                          Text(r.word.category, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 12)),
+                          Text('MATCH ${_history.length - i}', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                          Text('${match.rounds.length} rounds · ${match.players.length} players', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 12)),
+                          ...match.players.map((player) => Text('$player: ${match.finalScores[player] ?? 0} pts')),
                         ])),
-                        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                          Text(r.caught ? 'CAUGHT' : 'ESCAPED', style: TextStyle(fontWeight: FontWeight.w800)),
-                          Text(_formatDate(r.date), style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 12)),
-                        ]),
+                        Text(_formatDate(match.startedAt), style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 12)),
                       ]),
                     ));
                   },
@@ -1437,28 +1591,43 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       );
 
   Widget _historyDetail() {
-    final r = _selectedHistory!;
+    final match = _selectedMatch!;
     return Column(
-      mainAxisSize: MainAxisSize.min,
-      key: ValueKey('historyDetail'),
+      key: const ValueKey('historyDetail'),
       children: [
-        Text('ROUND HISTORY', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-        SizedBox(height: 14),
-        _panel(Column(children: [
-          Text(r.word.word, style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
-          Text(r.word.wordHi, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
-          Text(r.word.category, style: TextStyle(fontWeight: FontWeight.w800)),
-          Text(r.word.categoryHi, style: TextStyle(color: PaletteScope.of(context).palette.muted)),
-          Divider(color: PaletteScope.of(context).palette.accent),
-          Text('Imposter: ${r.imposter}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-          Text(r.caught ? 'Caught' : 'Not caught', style: TextStyle(color: PaletteScope.of(context).palette.muted)),
-          SizedBox(height: 10),
-          ...List.generate(r.players.length, (i) => Row(children: [
-            Expanded(child: Text(r.players[i])),
-            Text('${r.voteTotals[i]} votes · ${r.points[i] > 0 ? '+' : ''}${r.points[i]} pts · total ${r.scores[i]}'),
-          ])),
-        ])),
-        SizedBox(height: 14),
+        Text('MATCH DETAILS', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+        Text('${match.rounds.length} rounds played', style: TextStyle(color: PaletteScope.of(context).palette.muted)),
+        Expanded(child: ListView(
+          children: [
+            _panel(Column(children: [
+              Text('FINAL SCOREBOARD', style: TextStyle(fontWeight: FontWeight.w900)),
+              ...match.players.map((player) => Row(children: [
+                Expanded(child: Text(player)),
+                Text('${match.finalScores[player] ?? 0} pts', style: TextStyle(fontWeight: FontWeight.w900)),
+              ])),
+            ])),
+            const SizedBox(height: 12),
+            ...List.generate(match.rounds.length, (index) {
+              final round = match.rounds[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _panel(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('ROUND ${index + 1}', style: TextStyle(color: PaletteScope.of(context).palette.accent, fontWeight: FontWeight.w900)),
+                  Text('${round.word.word} · ${round.word.category}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                  Text('Imposter: ${round.imposter} · ${round.caught ? 'Caught' : 'Escaped'}'),
+                  const Divider(),
+                  ...List.generate(round.players.length, (i) => Row(children: [
+                    Expanded(child: Text(round.players[i])),
+                    Text('${round.voteTotals[i]} votes · ${round.points[i] > 0 ? '+' : ''}${round.points[i]} pts · total ${round.scores[i]}'),
+                  ])),
+                  const SizedBox(height: 8),
+                  Text('VOTING', style: TextStyle(fontWeight: FontWeight.w900, color: PaletteScope.of(context).palette.muted)),
+                  ...round.votes.entries.toList()..sort((a,b)=>a.key.compareTo(b.key)).map((entry) => Text('${round.players[entry.key]} voted for ${round.players[entry.value]}')),
+                ])),
+              );
+            }),
+          ],
+        )),
         _button('BACK TO HISTORY', () => _go(Phase.history)),
         _button('BACK TO GAME', () => _go(Phase.menu), main: true),
       ],
