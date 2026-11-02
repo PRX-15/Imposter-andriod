@@ -652,6 +652,11 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     }
     setState(() {
       _busy = true;
+      if (_matchStartedAt == null) {
+        _scores.clear();
+        _currentRounds.clear();
+        _roundNumber = 0;
+      }
       for (var i = 0; i < _players.length; i++) {
         _players[i] = _controllers[i].text.trim().isEmpty ? 'Player ${i + 1}' : _controllers[i].text.trim();
       }
