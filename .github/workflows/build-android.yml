@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [main, master, 'codex/game-complete']
+    branches: [main, master, 'codex/game-complete', 'codex/match-history-scoring-update']
   pull_request:
   workflow_dispatch:
 
