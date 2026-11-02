@@ -441,7 +441,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
             ..addAll((data['rounds'] as List? ?? const []).whereType<Map>()
               .map((item) => RoundRecord.fromJson(Map<String, dynamic>.from(item))));
           _matchStartedAt = data['startedAt'] as String?;
-          _roundNumber = (data['roundNumber'] as num?)?.toInt() ?? _currentRounds.length;
+          _roundNumber = _currentRounds.length;
           _syncControllers();
         } catch (_) {
           _matchStartedAt = null;
@@ -643,7 +643,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     });
   }
 
-  void _startRound() {
+  Future<void> _startRound() async {
     if (_busy ||
         (_phase != Phase.menu && _phase != Phase.results) ||
         _players.length < 3 ||
@@ -680,7 +680,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     });
     _curtainController.reset();
     setState(() => _busy = false);
-    _persistUnfinished();
+    await _persistUnfinished();
   }
 
   void _revealRole() {
@@ -811,7 +811,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     await _persistHistory();
   }
 
-  void _playAgain() => _startRound();
+  Future<void> _playAgain() async => _startRound();
 
   Widget _page(Widget child) => SafeArea(
         child: Center(
@@ -1507,6 +1507,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     return Column(
       key: ValueKey('results'),
       children: [
+        Text('ROUND $_roundNumber', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w800)),
         Text(record.caught ? 'IMPOSTER CAUGHT' : 'IMPOSTER NOT CAUGHT', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
         SizedBox(height: 10),
         _panel(
