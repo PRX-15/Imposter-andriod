@@ -227,9 +227,11 @@ class _ImposterAppState extends State<ImposterApp> {
     curve: Curves.easeInOutCubic,
     builder: (context, palette, _) {
       final theme = ThemeData(
-        brightness: Brightness.dark,
+        brightness: _paletteIndex == 5 ? Brightness.light : Brightness.dark,
         scaffoldBackgroundColor: palette.background,
-        colorScheme: ColorScheme.dark(primary: palette.primary, secondary: palette.accent, surface: palette.card),
+        colorScheme: _paletteIndex == 5
+            ? ColorScheme.light(primary: palette.primary, secondary: palette.accent, surface: palette.card, onSurface: const Color(0xFF303544))
+            : ColorScheme.dark(primary: palette.primary, secondary: palette.accent, surface: palette.card),
         fontFamily: 'Roboto',
         useMaterial3: true,
       );
@@ -311,6 +313,7 @@ class GameHome extends StatefulWidget {
 class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   final Random _random = Random();
   final List<TextEditingController> _controllers = [];
+  final List<FocusNode> _playerFocusNodes = [];
   final List<String> _players = ['', '', ''];
   final List<int> _playerIds = [0, 1, 2];
   int _nextPlayerId = 3;
@@ -357,6 +360,9 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     for (final c in _controllers) {
       c.dispose();
     }
+    for (final focusNode in _playerFocusNodes) {
+      focusNode.dispose();
+    }
     _curtainController.dispose();
     super.dispose();
   }
@@ -365,8 +371,14 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     while (_controllers.length < _players.length) {
       _controllers.add(TextEditingController(text: _players[_controllers.length]));
     }
+    while (_playerFocusNodes.length < _players.length) {
+      _playerFocusNodes.add(FocusNode());
+    }
     while (_controllers.length > _players.length) {
       _controllers.removeLast().dispose();
+    }
+    while (_playerFocusNodes.length > _players.length) {
+      _playerFocusNodes.removeLast().dispose();
     }
     for (var i = 0; i < _players.length; i++) {
       if (_controllers[i].text != _players[i]) {
@@ -654,6 +666,9 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       _players.removeAt(i);
       _playerIds.removeAt(i);
       _controllers.removeAt(i).dispose();
+      final removedFocusNode = _playerFocusNodes.removeAt(i);
+      removedFocusNode.unfocus();
+      removedFocusNode.dispose();
     });
   }
 
@@ -994,71 +1009,147 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
 
   Widget _menu() => LayoutBuilder(
         builder: (context, constraints) {
+          final paletteScope = PaletteScope.of(context);
+          final partyPalette = paletteScope.selectedIndex == 5;
           final compact = constraints.maxHeight < 560;
-          return Column(
-          children: [
-            _historyButton(),
-            if (!compact) _heading('IMPOSTER', subtitle: 'ONE WORD. ONE FAKE. FIND THEM.')
-            else const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Text('IMPOSTER', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900, letterSpacing: 2))),
-            _themeButton(),
-            SizedBox(height: 4),
-            Expanded(
-              child: _panel(
-                ListView.builder(
-                  key: ValueKey('player-list'),
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: EdgeInsets.zero,
-                  itemCount: _players.length,
-                  findChildIndexCallback: (key) {
-                    if (key is ValueKey<String> &&
-                        key.value.startsWith('player-row-')) {
-                      final id = int.tryParse(
-                        key.value.substring('player-row-'.length),
-                      );
-                      if (id != null) {
-                        final index = _playerIds.indexOf(id);
-                        return index < 0 ? null : index;
-                      }
-                    }
-                    return null;
-                  },
-                  itemBuilder: (context, i) => Padding(
-                    key: ValueKey('player-row-${_playerIds[i]}'),
-                    padding: EdgeInsets.only(bottom: 9),
-                    child: Row(children: [
-                      Icon(Icons.person, color: PaletteScope.of(context).palette.muted, size: 28),
-                      SizedBox(width: 8),
-                      Expanded(child: TextField(
-                        key: ValueKey('player-${_playerIds[i]}'),
-                        controller: _controllers[i],
-                        onChanged: (v) => _updatePlayerName(i, v),
-                        readOnly: _matchStartedAt != null,
-                        textCapitalization: TextCapitalization.words,
-                        decoration: InputDecoration(
-                          hintText: 'Enter player ${i + 1} name',
-                          filled: true,
-                          fillColor: PaletteScope.of(context).palette.card2,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 11),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
-                        ),
-                      )),
-                      if (_players.length > 3)
-                        IconButton(
-                          key: ValueKey('remove-player-${_playerIds[i]}'),
-                          onPressed: _matchStartedAt == null ? () => _removePlayer(i) : null,
-                          icon: Icon(Icons.remove_circle, color: danger),
-                        ),
-                    ]),
+          const partyPlayerColors = [
+            Color(0xFFFF625E),
+            Color(0xFF19B5D0),
+            Color(0xFF79D34A),
+            Color(0xFFFFC857),
+            Color(0xFFB88AEF),
+            Color(0xFFFF8EBA),
+            Color(0xFF68CBB4),
+            Color(0xFFFFA65E),
+            Color(0xFF78A8EE),
+            Color(0xFFB4D95A),
+          ];
+          final header = partyPalette
+              ? Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF32375F), Color(0xFF202646)],
+                    ),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x33242A50), blurRadius: 18, offset: Offset(0, 8)),
+                    ],
                   ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const Spacer(),
+                          const Text('IMPOSTER', style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                          const Spacer(),
+                          IconButton(
+                            tooltip: 'History',
+                            onPressed: () => _go(Phase.history),
+                            icon: const Icon(Icons.history_rounded, color: Colors.white),
+                            style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: .14)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Play with up to 10 friends! Give smart clues about your secret word without being too obvious. Discuss who the imposter could be and vote them out to win the game.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 15, height: 1.35, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _historyButton(),
+                    _heading('IMPOSTER', subtitle: 'ONE WORD. ONE FAKE. FIND THEM.'),
+                  ],
+                );
+          return Column(
+            children: [
+              header,
+              _themeButton(),
+              const SizedBox(height: 4),
+              Expanded(
+                child: _panel(
+                  ListView.builder(
+                    key: const ValueKey('player-list'),
+                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
+                    padding: EdgeInsets.zero,
+                    itemCount: _players.length,
+                    findChildIndexCallback: (key) {
+                      if (key is ValueKey<String> && key.value.startsWith('player-row-')) {
+                        final id = int.tryParse(key.value.substring('player-row-'.length));
+                        if (id != null) {
+                          final index = _playerIds.indexOf(id);
+                          return index < 0 ? null : index;
+                        }
+                      }
+                      return null;
+                    },
+                    itemBuilder: (context, i) {
+                      final rowColor = partyPlayerColors[i % partyPlayerColors.length];
+                      return Padding(
+                        key: ValueKey('player-row-${_playerIds[i]}'),
+                        padding: const EdgeInsets.only(bottom: 9),
+                        child: Container(
+                          padding: partyPalette ? const EdgeInsets.symmetric(horizontal: 10, vertical: 5) : EdgeInsets.zero,
+                          decoration: partyPalette ? BoxDecoration(
+                            color: rowColor,
+                            borderRadius: BorderRadius.circular(22),
+                            boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 7, offset: Offset(0, 3))],
+                          ) : null,
+                          child: Row(children: [
+                            Icon(partyPalette ? Icons.edit_rounded : Icons.person,
+                              color: partyPalette ? const Color(0xFF303544) : paletteScope.palette.muted, size: 27),
+                            const SizedBox(width: 8),
+                            Expanded(child: TextField(
+                              key: ValueKey('player-${_playerIds[i]}'),
+                              controller: _controllers[i],
+                              focusNode: _playerFocusNodes[i],
+                              onChanged: (v) => _updatePlayerName(i, v),
+                              readOnly: _matchStartedAt != null,
+                              textCapitalization: TextCapitalization.words,
+                              keyboardAppearance: partyPalette ? Brightness.light : Brightness.dark,
+                              scrollPadding: const EdgeInsets.only(bottom: 120),
+                              style: TextStyle(
+                                color: partyPalette ? const Color(0xFF303544) : Colors.white,
+                                fontSize: partyPalette ? 20 : 16,
+                                fontWeight: partyPalette ? FontWeight.w800 : FontWeight.w500,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Enter player ${i + 1} name',
+                                hintStyle: TextStyle(color: partyPalette ? const Color(0x99303544) : null),
+                                filled: !partyPalette,
+                                fillColor: paletteScope.palette.card2,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: partyPalette ? 15 : 11),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
+                              ),
+                            )),
+                            if (_players.length > 3)
+                              IconButton(
+                                key: ValueKey('remove-player-${_playerIds[i]}'),
+                                onPressed: _matchStartedAt == null ? () => _removePlayer(i) : null,
+                                icon: Icon(Icons.remove_circle, color: partyPalette ? const Color(0xFF303544) : danger),
+                              ),
+                          ]),
+                        ),
+                      );
+                    },
+                  ),
+                  padding: EdgeInsets.all(partyPalette ? 12 : 14),
                 ),
-                padding: EdgeInsets.all(14),
               ),
-            ),
-            _button('+ ADD PLAYER', _matchStartedAt == null && _players.length < 10 ? _addPlayer : null, compact: compact),
-            _button('PLAY', _startRound, main: true, compact: compact),
-            if (!compact) Padding(padding: EdgeInsets.only(top: 10), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: PaletteScope.of(context).palette.muted))),
-          ],
-        );
+              _button('+ ADD PLAYER', _matchStartedAt == null && _players.length < 10 ? _addPlayer : null, compact: compact),
+              _button('PLAY', _startRound, main: true, compact: compact),
+              if (!compact) Padding(padding: const EdgeInsets.only(top: 8), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: paletteScope.palette.muted))),
+            ],
+          );
         },
       );
 
