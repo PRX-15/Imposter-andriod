@@ -881,16 +881,21 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         child: child,
       );
 
-  Widget _button(String label, VoidCallback? onPressed, {bool main = false, bool compact = false}) => SizedBox(
+  Widget _button(String label, VoidCallback? onPressed, {bool main = false, bool compact = false}) {
+    final scope = PaletteScope.of(context);
+    final partyPalette = scope.selectedIndex == 5;
+    final foreground = partyPalette ? const Color(0xFF303544) : Colors.white;
+    return SizedBox(
         width: double.infinity,
         child: Padding(
           padding: EdgeInsets.only(top: compact ? 8 : 12),
           child: FilledButton(
             onPressed: onPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: main ? PaletteScope.of(context).palette.primary : PaletteScope.of(context).palette.card2,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: PaletteScope.of(context).palette.card2.withValues(alpha: .5),
+              backgroundColor: main ? scope.palette.primary : scope.palette.card2,
+              foregroundColor: foreground,
+              disabledForegroundColor: foreground.withValues(alpha: .45),
+              disabledBackgroundColor: scope.palette.card2.withValues(alpha: .5),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(28),
                 side: BorderSide(color: main ? Color(0xFFFF6390) : PaletteScope.of(context).palette.accent),
@@ -902,6 +907,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           ),
         ),
       );
+  }
 
   Widget _heading(String title, {String? subtitle}) => Column(
         children: [
