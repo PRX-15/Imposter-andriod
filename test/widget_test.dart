@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:imposter_android/main.dart';
@@ -242,6 +243,49 @@ void main() {
     await tester.enterText(player, 'Alice');
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(player).controller!.text, 'Alice');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('match history cards are compact and open full round details', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'imposter_matches_v2': jsonEncode([
+        {
+          'startedAt': '2026-11-01T10:00:00.000',
+          'players': ['Alice', 'Bob', 'Charlie'],
+          'rounds': [
+            {
+              'date': '2026-11-01T10:05:00.000',
+              'word': {'word': 'Apple', 'word_hi': 'सेब', 'category': 'FRUITS', 'category_hi': 'फल'},
+              'imposter': 'Bob',
+              'players': ['Alice', 'Bob', 'Charlie'],
+              'voteTotals': [2, 0, 1],
+              'points': [2, -1, 1],
+              'scores': [2, -1, 1],
+              'caught': true,
+              'votes': {'0': 1, '1': 0, '2': 1}
+            }
+          ],
+          'finalScores': {'Alice': 2, 'Bob': -1, 'Charlie': 1}
+        }
+      ])
+    });
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('history-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('MATCH 1'), findsOneWidget);
+    expect(find.text('1 rounds · 3 players'), findsOneWidget);
+    expect(find.text('Alice: 2 pts'), findsNothing);
+
+    await tester.tap(find.text('MATCH 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('MATCH DETAILS'), findsOneWidget);
+    expect(find.text('FINAL SCOREBOARD'), findsOneWidget);
+    expect(find.text('Apple · FRUITS'), findsOneWidget);
+    expect(find.text('Imposter: Bob · Caught'), findsOneWidget);
+    expect(find.text('Alice voted for Bob'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
