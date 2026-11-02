@@ -37,7 +37,7 @@ const List<GamePalette> gamePalettes = [
   GamePalette(name: 'Emerald', background: Color(0xFF06130D), card: Color(0xFF132C20), card2: Color(0xFF1D4430), accent: Color(0xFF57E39A), primary: Color(0xFF19B96C), muted: Color(0xFFB0E5C7)),
   GamePalette(name: 'Sunset', background: Color(0xFF1B0B08), card: Color(0xFF38201A), card2: Color(0xFF542D22), accent: Color(0xFFFFB15C), primary: Color(0xFFFF5C49), muted: Color(0xFFFFD2B7)),
   GamePalette(name: 'Rose', background: Color(0xFF190710), card: Color(0xFF351324), card2: Color(0xFF501A34), accent: Color(0xFFFF75B5), primary: Color(0xFFE92F78), muted: Color(0xFFF1B8D4)),
-  GamePalette(name: 'Neon Royale', background: Color(0xFF10051F), card: Color(0xFF211039), card2: Color(0xFF351653), accent: Color(0xFFB65CFF), primary: Color(0xFFFF3FA4), muted: Color(0xFFE7C9FF)),
+  GamePalette(name: 'Pop Party', background: Color(0xFFEAF6FF), card: Color(0xFFFFFFFF), card2: Color(0xFFDDEFFC), accent: Color(0xFF42477F), primary: Color(0xFF00BBDD), muted: Color(0xFF46506A)),
 ];
 
 const Color good = Color(0xFF59D968);
@@ -664,6 +664,9 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         _players.length > 10) {
       return;
     }
+    FocusManager.instance.primaryFocus?.unfocus();
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
     setState(() {
       _busy = true;
       if (_matchStartedAt == null) {
@@ -672,9 +675,9 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
         _roundNumber = 0;
       }
       for (var i = 0; i < _players.length; i++) {
-        _players[i] = _controllers[i].text.trim().isEmpty ? 'Player ${i + 1}' : _controllers[i].text.trim();
+        final editedName = _controllers[i].text.trim();
+        _players[i] = editedName.isEmpty ? 'Player ${i + 1}' : editedName;
       }
-      _syncControllers();
       final choices = wordDatabase.where((w) => w.word != _lastWord).toList();
       _word = choices[_random.nextInt(choices.length)];
       _lastWord = _word!.word;
@@ -694,6 +697,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     });
     _curtainController.reset();
     setState(() => _busy = false);
+    _syncControllers();
     await _persistUnfinished();
   }
 
@@ -1527,7 +1531,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
       key: ValueKey('results'),
       children: [
         Text('ROUND $_roundNumber', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w800)),
-        Text(record.caught ? 'IMPOSTER CAUGHT' : 'IMPOSTER NOT CAUGHT', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+        Text(record.caught ? 'IMPOSTER CAUGHT' : 'IMPOSTER NOT CAUGHT', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: record.caught ? const Color(0xFF36C66B) : const Color(0xFFE34B55))),
         SizedBox(height: 10),
         _panel(
           Column(
@@ -1551,8 +1555,10 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
               key: ValueKey('results-player-list'),
               padding: EdgeInsets.zero,
               children: [
-                Text('IMPOSTER', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700)),
-                Text(record.imposter, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text('IMPOSTER', textAlign: TextAlign.center, style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w700)),
+                  Text(record.imposter, textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                ])),
                 SizedBox(height: 8),
                 Divider(color: PaletteScope.of(context).palette.accent),
                 Text('SCOREBOARD', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontWeight: FontWeight.w800)),
@@ -1601,12 +1607,27 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                         _phase = Phase.historyDetail;
                       }),
                       child: Row(children: [
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('MATCH ${_history.length - i}', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-                          Text('${match.rounds.length} rounds · ${match.players.length} players', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 12)),
-                          ...match.players.map((player) => Text('$player: ${match.finalScores[player] ?? 0} pts')),
-                        ])),
-                        Text(_formatDate(match.startedAt), style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 12)),
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: PaletteScope.of(context).palette.card2,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.emoji_events_outlined, color: PaletteScope.of(context).palette.accent, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('MATCH ${_history.length - i}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                            Text('${match.rounds.length} rounds · ${match.players.length} players', style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 12)),
+                          ],
+                        )),
+                        Text(_formatDate(match.startedAt), style: TextStyle(color: PaletteScope.of(context).palette.muted, fontSize: 11)),
+                        const SizedBox(width: 4),
+                        Icon(Icons.chevron_right_rounded, color: PaletteScope.of(context).palette.muted),
                       ]),
                     ));
                   },
