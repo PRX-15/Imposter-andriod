@@ -305,15 +305,17 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    await tester.drag(find.byKey(const ValueKey('player-list')), const Offset(0, -5000));
+    await tester.pumpAndSettle();
     final lastPlayer = find.byKey(const ValueKey('player-19'));
     await tester.ensureVisible(lastPlayer);
     expect(lastPlayer, findsOneWidget);
     expect(find.text('+ ADD PLAYER'), findsOneWidget);
 
-    final addPlayerButton = tester.widget<ElevatedButton>(
+    final addPlayerButton = tester.widget<FilledButton>(
       find.ancestor(
         of: find.text('+ ADD PLAYER'),
-        matching: find.byType(ElevatedButton),
+        matching: find.byType(FilledButton),
       ).first,
     );
     expect(addPlayerButton.onPressed, isNull);
