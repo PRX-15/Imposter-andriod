@@ -500,7 +500,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
           _players
             ..clear()
             ..addAll(List<String>.from(data['players'] as List? ?? const []));
-          if (_players.length < 3 || _players.length > 10) {
+          if (_players.length < 3 || _players.length > 20) {
             _players
               ..clear()
               ..addAll(['', '', '']);
@@ -709,7 +709,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
   }
 
   void _addPlayer() {
-    if (_players.length >= 10) return;
+    if (_players.length >= 20) return;
     setState(() {
       _players.add('');
       _playerIds.add(_nextPlayerId++);
@@ -733,7 +733,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
     if (_busy ||
         (_phase != Phase.menu && _phase != Phase.results) ||
         _players.length < 3 ||
-        _players.length > 10) {
+        _players.length > 20) {
       return;
     }
     FocusManager.instance.primaryFocus?.unfocus();
@@ -1119,7 +1119,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Play with up to 10 friends! Give smart clues about your secret word without being too obvious. Discuss who the imposter could be and vote them out to win the game.',
+                        'Play with up to 20 friends! Give smart clues about your secret word without being too obvious. Discuss who the imposter could be and vote them out to win the game.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.white, fontSize: 15, height: 1.35, fontWeight: FontWeight.w700),
                       ),
@@ -1208,7 +1208,7 @@ class _GameHomeState extends State<GameHome> with TickerProviderStateMixin {
                   padding: EdgeInsets.all(partyPalette ? 12 : 14),
                 ),
               ),
-              _button('+ ADD PLAYER', _matchStartedAt == null && _players.length < 10 ? _addPlayer : null, compact: compact),
+              _button('+ ADD PLAYER', _matchStartedAt == null && _players.length < 20 ? _addPlayer : null, compact: compact),
               _button('PLAY', _startRound, main: true, compact: compact),
               if (!compact) Padding(padding: const EdgeInsets.only(top: 8), child: Text('Pass the phone. Find the fake.', style: TextStyle(color: paletteScope.palette.muted))),
             ],
