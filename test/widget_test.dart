@@ -289,4 +289,39 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('supports up to 20 players and prevents adding a 21st', (tester) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(const ImposterApp());
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    for (var i = 0; i < 17; i++) {
+      await tester.tap(find.text('+ ADD PLAYER'));
+      await tester.pumpAndSettle();
+    }
+
+    final lastPlayer = find.byKey(const ValueKey('player-19'));
+    await tester.ensureVisible(lastPlayer);
+    expect(lastPlayer, findsOneWidget);
+    expect(find.text('+ ADD PLAYER'), findsOneWidget);
+
+    final addPlayerButton = tester.widget<ElevatedButton>(
+      find.ancestor(
+        of: find.text('+ ADD PLAYER'),
+        matching: find.byType(ElevatedButton),
+      ).first,
+    );
+    expect(addPlayerButton.onPressed, isNull);
+
+    await tester.tap(find.text('PLAY'));
+    await tester.pumpAndSettle();
+    expect(find.text('PLAYER 1'), findsOneWidget);
+    expect(find.text('TAP HERE TO\\nREVEAL YOUR ROLE'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
