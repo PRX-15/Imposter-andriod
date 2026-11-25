@@ -323,7 +323,7 @@ void main() {
     await tester.tap(find.text('PLAY'));
     await tester.pumpAndSettle();
     expect(find.text('PLAYER 1'), findsOneWidget);
-    expect(find.text('TAP HERE TO\\nREVEAL YOUR ROLE'), findsOneWidget);
+    expect(find.text('TAP HERE TO\nREVEAL YOUR ROLE'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
