@@ -917,7 +917,7 @@ const List<WordEntry> wordDatabase = [
   WordEntry('Reason', 'रएअसओन', 'IDEAS & CONCEPTS', 'विचार और अवधारणाएँ'),
   WordEntry('Logic', 'तर्क', 'IDEAS & CONCEPTS', 'विचार और अवधारणाएँ'),
   WordEntry('Creativity', 'करएअटइवइटय', 'IDEAS & CONCEPTS', 'विचार और अवधारणाएँ'),
-]
+];
 
 class RoundRecord {
   RoundRecord({
